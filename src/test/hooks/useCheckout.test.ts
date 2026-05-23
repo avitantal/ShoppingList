@@ -19,7 +19,7 @@ describe('useCheckout', () => {
       });
     });
     expect(rpcSpy).toHaveBeenCalledTimes(1);
-    const arg = rpcSpy.mock.calls[0][0] as { p_store_chain: string };
+    const arg = (rpcSpy.mock.calls[0] as unknown[])[0] as { p_store_chain: string };
     expect(arg.p_store_chain).toBe('שופרסל');
   });
 });
