@@ -1,0 +1,2 @@
+-- Idempotent cleanup of e2e users' data — run from supabaseAdmin if needed.
+-- (Placeholder; tests typically call purgeListsForUser instead.)
