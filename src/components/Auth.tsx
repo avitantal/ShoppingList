@@ -33,6 +33,21 @@ export function Auth() {
           )}
           {loading ? 'מתחבר...' : 'כניסה עם Google'}
         </button>
+        {import.meta.env.DEV && (
+          <details className="mt-6 text-xs text-muted">
+            <summary>e2e sign-in</summary>
+            <form className="mt-2 space-y-2" onSubmit={async (e) => {
+              e.preventDefault();
+              const f = new FormData(e.currentTarget);
+              const { supabase } = await import('../lib/supabase');
+              await supabase.auth.signInWithPassword({ email: String(f.get('email')), password: String(f.get('password')) });
+            }}>
+              <input name="email" placeholder="email" className="input" />
+              <input name="password" type="password" placeholder="password" className="input" />
+              <button className="btn-primary w-full" type="submit">Sign in (e2e)</button>
+            </form>
+          </details>
+        )}
       </div>
     </div>
   );
