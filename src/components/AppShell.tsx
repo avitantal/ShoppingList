@@ -23,8 +23,11 @@ export function AppShell() {
     if (all.length === 0) return;
     if (!activeId || !all.some(l => l.id === activeId)) {
       const fallback = owned.find(l => l.is_default)?.id ?? all[0].id;
-      setActiveId(fallback);
-      localStorage.setItem(LS_KEY, fallback);
+      const t = window.setTimeout(() => {
+        setActiveId(fallback);
+        localStorage.setItem(LS_KEY, fallback);
+      }, 0);
+      return () => window.clearTimeout(t);
     }
   }, [loading, owned, shared, activeId]);
 
@@ -34,7 +37,7 @@ export function AppShell() {
 
   // Refresh on sign-in (belt-and-braces per spec §8)
   useEffect(() => {
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, _s) => { void refresh(); });
+    const { data: sub } = supabase.auth.onAuthStateChange(() => { void refresh(); });
     return () => { sub.subscription.unsubscribe(); };
   }, [refresh]);
 

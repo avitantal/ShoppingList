@@ -32,7 +32,10 @@ export function usePurchaseHistory(listId: string | null) {
     setLoading(false);
   }, [listId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const t = window.setTimeout(() => { void refresh(); }, 0);
+    return () => window.clearTimeout(t);
+  }, [refresh]);
 
   return { entries, loading, refresh };
 }

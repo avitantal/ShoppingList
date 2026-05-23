@@ -15,7 +15,10 @@ export function ShareDialog({ listId, onClose }: Props) {
     setParticipants((data ?? []) as ListParticipant[]);
   }, [listId]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const t = window.setTimeout(() => { void refresh(); }, 0);
+    return () => window.clearTimeout(t);
+  }, [refresh]);
 
   async function invite() {
     const v = email.trim();

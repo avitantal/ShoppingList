@@ -25,7 +25,10 @@ export function useLists() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const t = window.setTimeout(() => { void refresh(); }, 0);
+    return () => window.clearTimeout(t);
+  }, [refresh]);
 
   // Realtime: react to membership changes for me
   useEffect(() => {
