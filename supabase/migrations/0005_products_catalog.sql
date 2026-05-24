@@ -83,3 +83,128 @@ create policy refresh_log_read    on shopping.refresh_log    for select to authe
 -- app_admins: each user can see whether *they* are an admin; no one else.
 create policy app_admins_self on shopping.app_admins
   for select to authenticated using (user_id = auth.uid());
+
+-- =====================================================================
+-- RPC: search_products — fuzzy lookup for the autocomplete UI.
+-- =====================================================================
+create or replace function shopping.search_products(
+  p_query      text,
+  p_chain_code text default 'rami-levy',
+  p_limit      int  default 8
+) returns table(
+  barcode      text,
+  name         text,
+  unit_qty     numeric,
+  unit_measure text,
+  manufacturer text,
+  price        numeric
+)
+language sql stable security invoker
+set search_path = shopping, public, extensions
+as $$
+  with q as (select trim(p_query) as s)
+  select p.barcode, p.name, p.unit_qty, p.unit_measure, p.manufacturer, pp.price
+  from shopping.products p
+  join shopping.product_prices pp on pp.barcode = p.barcode
+  cross join q
+  where length(q.s) >= 2
+    and pp.chain_code = p_chain_code
+    and p.name ilike '%' || q.s || '%'
+  order by
+    case when p.name ilike q.s || '%' then 0 else 1 end,
+    similarity(p.name, q.s) desc,
+    p.name asc
+  limit greatest(least(p_limit, 50), 1);
+$$;
+
+grant execute on function shopping.search_products(text, text, int) to authenticated;
+
+-- =====================================================================
+-- RPC: add_item (extended) — accepts optional p_barcode and returns
+-- both the new row's id and a barcode_applied flag.
+-- Drop the prior signature to allow changing the return type.
+-- Prior signature in this project was (uuid, text, numeric, text, text)
+-- where the last text was p_notes; replaced here with p_barcode.
+-- =====================================================================
+drop function if exists shopping.add_item(uuid, text, numeric, text, text);
+
+create or replace function shopping.add_item(
+  p_list_id uuid,
+  p_name    text,
+  p_qty     numeric default 1,
+  p_unit    text    default null,
+  p_barcode text    default null
+) returns table(item_id uuid, barcode_applied boolean)
+language plpgsql security definer
+set search_path = shopping, public, auth
+as $$
+declare
+  v_uid       uuid := auth.uid();
+  v_price     numeric;
+  v_unit_qty  numeric;
+  v_unit      text;
+  v_applied   boolean := false;
+  v_id        uuid;
+begin
+  if v_uid is null then raise exception 'not authenticated'; end if;
+
+  if p_barcode is not null then
+    select pp.price, p.unit_qty, p.unit_measure
+      into v_price, v_unit_qty, v_unit
+      from shopping.products p
+      join shopping.product_prices pp on pp.barcode = p.barcode
+      where p.barcode = p_barcode and pp.chain_code = 'rami-levy';
+    v_applied := found;
+  end if;
+
+  insert into shopping.list_items
+    (list_id, name, qty, unit, estimated_price, barcode, created_by)
+  values
+    (p_list_id, p_name,
+     coalesce(p_qty, 1),
+     coalesce(p_unit, v_unit),
+     v_price,
+     case when v_applied then p_barcode else null end,
+     v_uid)
+  returning id into v_id;
+
+  return query select v_id, v_applied;
+end $$;
+
+grant execute on function shopping.add_item(uuid, text, numeric, text, text) to authenticated;
+
+-- =====================================================================
+-- RPC: refresh_products_now — admin-only manual trigger for debugging.
+-- Inserts a refresh_log row up-front so the caller can poll it, then
+-- fires-and-forgets the Edge Function (which updates the same row).
+-- =====================================================================
+create or replace function shopping.refresh_products_now(p_chain_code text default 'rami-levy')
+  returns bigint
+  language plpgsql
+  security definer
+  set search_path = shopping, public, extensions
+as $$
+declare
+  v_log_id bigint;
+begin
+  if not exists (select 1 from shopping.app_admins where user_id = auth.uid()) then
+    raise exception 'not authorized';
+  end if;
+
+  insert into shopping.refresh_log (chain_code, triggered_by)
+    values (p_chain_code, 'manual:' || coalesce(auth.uid()::text, 'unknown'))
+    returning id into v_log_id;
+
+  perform net.http_post(
+    url     := current_setting('app.functions_url') || '/refresh-products',
+    headers := jsonb_build_object(
+                 'Authorization', 'Bearer ' || current_setting('app.service_role_key'),
+                 'Content-Type', 'application/json'
+               ),
+    body    := jsonb_build_object('log_id', v_log_id, 'chain_code', p_chain_code)
+  );
+  return v_log_id;
+end $$;
+
+revoke all on function shopping.refresh_products_now(text) from public;
+grant execute on function shopping.refresh_products_now(text) to authenticated;
