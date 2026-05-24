@@ -32,24 +32,22 @@ export function useLists() {
       setOwned(ownedLists);
       setShared(lists.filter(l => l.owner_id !== uid));
 
-      // Auto-create a default list on first ShoppingList load. (We do this here
-      // instead of via an auth.users trigger so we don't pollute the shared
-      // auth.users table with side effects for non-ShoppingList users.)
+      // Auto-create a default list on first ShoppingList load. Uses the
+      // idempotent ensure_default_list RPC (advisory-locked per user) so
+      // concurrent refresh() calls from mount/onAuthStateChange/realtime
+      // can't race-create duplicates.
       if (ownedLists.length === 0) {
-        const { data: newId, error: rpcErr } = await db.rpc('create_list',
-          { p_name: 'הרשימה שלי', p_make_default: true });
+        const { error: rpcErr } = await db.rpc('ensure_default_list');
         if (rpcErr) {
           setError(rpcErr.message ?? 'שגיאה ביצירת רשימת ברירת מחדל');
           return;
         }
-        if (newId) {
-          const { data: refreshed } = await db
-            .from('shopping_lists').select('*').is('archived_at', null)
-            .order('is_default', { ascending: false }).order('created_at', { ascending: true });
-          const all2 = (refreshed ?? []) as ShoppingList[];
-          setOwned(all2.filter(l => l.owner_id === uid));
-          setShared(all2.filter(l => l.owner_id !== uid));
-        }
+        const { data: refreshed } = await db
+          .from('shopping_lists').select('*').is('archived_at', null)
+          .order('is_default', { ascending: false }).order('created_at', { ascending: true });
+        const all2 = (refreshed ?? []) as ShoppingList[];
+        setOwned(all2.filter(l => l.owner_id === uid));
+        setShared(all2.filter(l => l.owner_id !== uid));
       }
     } finally {
       setLoading(false);
