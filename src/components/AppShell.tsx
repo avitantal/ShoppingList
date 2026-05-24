@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
 const LS_KEY = 'activeListId';
 
 export function AppShell() {
-  const { owned, shared, loading, refresh } = useLists();
+  const { owned, shared, loading, error, refresh } = useLists();
   const [activeId, setActiveId] = useState<string | null>(() => localStorage.getItem(LS_KEY));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [shareOpen,  setShareOpen]  = useState(false);
@@ -68,7 +68,18 @@ export function AppShell() {
           </span>
         </header>
         <div className="flex-1 overflow-hidden">
-          {active ? <ActiveList listId={active.id} /> : <div className="p-8 text-center text-muted">טוען רשימות...</div>}
+          {error ? (
+            <div className="p-8 text-center">
+              <div className="text-red-400 mb-2">שגיאה: {error}</div>
+              <button className="btn-ghost" onClick={() => void refresh()}>נסה שוב</button>
+            </div>
+          ) : active ? (
+            <ActiveList listId={active.id} />
+          ) : loading ? (
+            <div className="p-8 text-center text-muted">טוען רשימות...</div>
+          ) : (
+            <div className="p-8 text-center text-muted">אין רשימות עדיין</div>
+          )}
         </div>
       </main>
       {shareOpen && active && <ShareDialog listId={active.id} onClose={() => setShareOpen(false)} />}
