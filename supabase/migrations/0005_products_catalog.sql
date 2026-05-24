@@ -122,9 +122,10 @@ grant execute on function shopping.search_products(text, text, int) to authentic
 -- =====================================================================
 -- RPC: add_item (extended) — accepts optional p_barcode and returns
 -- both the new row's id and a barcode_applied flag.
+-- Preserves the prior behaviors: p_notes parameter and the
+-- is_list_member() guard (add_item is SECURITY DEFINER so it bypasses
+-- the list_items RLS policies; the explicit check is the gate).
 -- Drop the prior signature to allow changing the return type.
--- Prior signature in this project was (uuid, text, numeric, text, text)
--- where the last text was p_notes; replaced here with p_barcode.
 -- =====================================================================
 drop function if exists shopping.add_item(uuid, text, numeric, text, text);
 
@@ -133,6 +134,7 @@ create or replace function shopping.add_item(
   p_name    text,
   p_qty     numeric default 1,
   p_unit    text    default null,
+  p_notes   text    default null,
   p_barcode text    default null
 ) returns table(item_id uuid, barcode_applied boolean)
 language plpgsql security definer
@@ -147,6 +149,7 @@ declare
   v_id        uuid;
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
+  if not shopping.is_list_member(p_list_id) then raise exception 'not a member of list'; end if;
 
   if p_barcode is not null then
     select pp.price, p.unit_qty, p.unit_measure
@@ -158,11 +161,12 @@ begin
   end if;
 
   insert into shopping.list_items
-    (list_id, name, qty, unit, estimated_price, barcode, created_by)
+    (list_id, name, qty, unit, notes, estimated_price, barcode, created_by)
   values
     (p_list_id, p_name,
      coalesce(p_qty, 1),
      coalesce(p_unit, v_unit),
+     p_notes,
      v_price,
      case when v_applied then p_barcode else null end,
      v_uid)
@@ -171,7 +175,7 @@ begin
   return query select v_id, v_applied;
 end $$;
 
-grant execute on function shopping.add_item(uuid, text, numeric, text, text) to authenticated;
+grant execute on function shopping.add_item(uuid, text, numeric, text, text, text) to authenticated;
 
 -- =====================================================================
 -- RPC: refresh_products_now — admin-only manual trigger for debugging.
