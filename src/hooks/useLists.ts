@@ -33,18 +33,24 @@ export function useLists() {
   // Realtime: react to membership changes for me
   useEffect(() => {
     let alive = true;
+    // Create channel synchronously with a fresh, unique name so StrictMode's
+    // double-mount can't reuse an already-subscribed channel (which throws
+    // "cannot add postgres_changes callbacks ... after subscribe()").
+    let channel: ReturnType<typeof supabase.channel> | null = null;
     void supabase.auth.getUser().then(({ data }) => {
       const uid = data?.user?.id;
       if (!uid || !alive) return;
-      const ch = supabase
-        .channel('lists:membership:' + uid)
+      channel = supabase
+        .channel(`lists:membership:${uid}:${Math.random().toString(36).slice(2)}`)
         .on('postgres_changes',
             { event: '*', schema: 'public', table: 'list_members', filter: `user_id=eq.${uid}` },
-            () => { void refresh(); })
-        .subscribe();
-      return () => { supabase.removeChannel(ch); };
+            () => { void refresh(); });
+      channel.subscribe();
     });
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+      if (channel) void supabase.removeChannel(channel);
+    };
   }, [refresh]);
 
   return { owned, shared, loading, refresh };

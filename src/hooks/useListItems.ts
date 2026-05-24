@@ -24,12 +24,14 @@ export function useListItems(listId: string | null) {
 
   useEffect(() => {
     if (!listId) return;
+    // Unique channel name avoids StrictMode double-mount reusing an already-
+    // subscribed channel, which throws when adding .on() callbacks again.
     const ch = supabase
-      .channel(`list:${listId}`)
+      .channel(`list:${listId}:${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'list_items',      filter: `list_id=eq.${listId}` }, () => { void refresh(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_events', filter: `list_id=eq.${listId}` }, () => { void refresh(); })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_events', filter: `list_id=eq.${listId}` }, () => { void refresh(); });
+    ch.subscribe();
+    return () => { void supabase.removeChannel(ch); };
   }, [listId, refresh]);
 
   async function addItem(name: string, qty = 1, unit: string | null = null) {
@@ -39,18 +41,24 @@ export function useListItems(listId: string | null) {
   }
 
   async function setInCart(itemId: string, inCart: boolean) {
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, is_in_cart: inCart } : i));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('list_items') as any).update({ is_in_cart: inCart }).eq('id', itemId);
+    const { error } = await (supabase.from('list_items') as any).update({ is_in_cart: inCart }).eq('id', itemId);
+    if (error) { await refresh(); throw error; }
   }
 
   async function updateItem(itemId: string, patch: Partial<Pick<ListItem, 'name' | 'qty' | 'unit' | 'notes' | 'estimated_price' | 'sort_order'>>) {
+    setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...patch } : i));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('list_items') as any).update(patch).eq('id', itemId);
+    const { error } = await (supabase.from('list_items') as any).update(patch).eq('id', itemId);
+    if (error) { await refresh(); throw error; }
   }
 
   async function deleteItem(itemId: string) {
+    setItems(prev => prev.filter(i => i.id !== itemId));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('list_items') as any).delete().eq('id', itemId);
+    const { error } = await (supabase.from('list_items') as any).delete().eq('id', itemId);
+    if (error) { await refresh(); throw error; }
   }
 
   return { items, loading, refresh, addItem, setInCart, updateItem, deleteItem };
