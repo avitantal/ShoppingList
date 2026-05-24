@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase, type PurchaseEvent, type PurchaseEventItem } from '../lib/supabase';
+import { db, type PurchaseEvent, type PurchaseEventItem } from '../lib/supabase';
 
 export interface HistoryEntry extends PurchaseEvent { lines: PurchaseEventItem[]; }
 
@@ -10,20 +10,19 @@ export function usePurchaseHistory(listId: string | null) {
   const refresh = useCallback(async () => {
     if (!listId) { setEntries([]); return; }
     setLoading(true);
-    const { data: events } = await supabase
+    const { data: events } = await db
       .from('purchase_events')
       .select('*')
       .eq('list_id', listId)
       .order('purchased_at', { ascending: false });
     const ev = (events ?? []) as PurchaseEvent[];
     if (ev.length === 0) { setEntries([]); setLoading(false); return; }
-    const { data: items } = await (supabase
+    const { data: items } = await db
       .from('purchase_event_items')
-      .select('*') as unknown as { in: (col: string, ids: string[]) => Promise<{ data: unknown[] | null }> })
+      .select('*')
       .in('event_id', ev.map(e => e.id));
     const byEvent = new Map<string, PurchaseEventItem[]>();
-    (items ?? []).forEach((row) => {
-      const r = row as PurchaseEventItem;
+    ((items ?? []) as PurchaseEventItem[]).forEach((r) => {
       const arr = byEvent.get(r.event_id) ?? [];
       arr.push(r);
       byEvent.set(r.event_id, arr);

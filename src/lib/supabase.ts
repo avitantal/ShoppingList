@@ -6,6 +6,12 @@ export const supabase = createClient(
   { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } },
 );
 
+// ShoppingList tables live in the "shopping" schema (shared Supabase project
+// with ProjectsManagerWeb). Use `db` instead of `supabase` for from/rpc.
+export const SHOPPING_SCHEMA = 'shopping' as const;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const db = (supabase as any).schema(SHOPPING_SCHEMA);
+
 // ---------- Domain types (mirror DB schema, see supabase/migrations/0001_init.sql) ----------
 
 export type MemberRole = 'owner' | 'editor';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/supabase';
 import { toast } from 'sonner';
 
 interface Props { onCreated: (id: string) => void; onClose: () => void; }
@@ -11,7 +11,7 @@ export function NewListDialog({ onCreated, onClose }: Props) {
   async function create() {
     if (!name.trim()) return;
     setBusy(true);
-    const { data, error } = await supabase.rpc('create_list', { p_name: name.trim(), p_make_default: false });
+    const { data, error } = await db.rpc('create_list', { p_name: name.trim(), p_make_default: false });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     onCreated(data as string);

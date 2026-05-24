@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
+import { db } from '../lib/supabase';
 import { normalizeStoreName } from '../lib/format';
 
 export interface CheckoutItemInput {
@@ -17,7 +17,7 @@ export function useCheckout(listId: string | null) {
     if (!listId) return null;
     if (input.items.length === 0) { toast.error('אין פריטים בעגלה'); return null; }
     setSubmitting(true);
-    const { data, error } = await supabase.rpc('complete_checkout', {
+    const { data, error } = await db.rpc('complete_checkout', {
       p_list_id: listId,
       p_store_chain:  normalizeStoreName(input.storeChain),
       p_store_branch: normalizeStoreName(input.storeBranch),

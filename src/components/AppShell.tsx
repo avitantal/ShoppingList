@@ -55,7 +55,7 @@ export function AppShell() {
         </div>
       )}
       <main className="flex-1 flex flex-col">
-        <header className="flex items-center justify-between p-3 border-b border-border bg-surface">
+        <header className="flex items-center justify-between p-3 border-b border-border bg-surface relative">
           <button className="btn-ghost p-2" onClick={() => setDrawerOpen(true)} aria-label="פתח תפריט">
             <Menu size={20} />
           </button>
@@ -63,6 +63,9 @@ export function AppShell() {
           <button className="btn-ghost p-2" disabled={!isOwner} onClick={() => setShareOpen(true)} aria-label="שתף">
             <Share2 size={20} />
           </button>
+          <span className="absolute bottom-0.5 left-2 text-[10px] text-muted/60 font-mono pointer-events-none select-none">
+            v{__APP_VERSION__}
+          </span>
         </header>
         <div className="flex-1 overflow-hidden">
           {active ? <ActiveList listId={active.id} /> : <div className="p-8 text-center text-muted">טוען רשימות...</div>}

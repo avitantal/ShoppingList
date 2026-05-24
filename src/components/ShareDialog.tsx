@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { X } from 'lucide-react';
-import { supabase, type ListParticipant } from '../lib/supabase';
+import { db, type ListParticipant } from '../lib/supabase';
 import { toast } from 'sonner';
 
 interface Props { listId: string; onClose: () => void; }
@@ -11,7 +11,7 @@ export function ShareDialog({ listId, onClose }: Props) {
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const { data } = await supabase.from('v_list_participants').select('*').eq('list_id', listId);
+    const { data } = await db.from('v_list_participants').select('*').eq('list_id', listId);
     setParticipants((data ?? []) as ListParticipant[]);
   }, [listId]);
 
@@ -24,7 +24,7 @@ export function ShareDialog({ listId, onClose }: Props) {
     const v = email.trim();
     if (!v) return;
     setBusy(true);
-    const { error } = await supabase.rpc('share_list', { p_list_id: listId, p_email: v, p_role: 'editor' });
+    const { error } = await db.rpc('share_list', { p_list_id: listId, p_email: v, p_role: 'editor' });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setEmail('');
@@ -34,7 +34,7 @@ export function ShareDialog({ listId, onClose }: Props) {
 
   async function remove(p: ListParticipant) {
     if (p.role === 'owner') return;
-    const { error } = await supabase.rpc('unshare_list', { p_list_id: listId, p_email: p.email });
+    const { error } = await db.rpc('unshare_list', { p_list_id: listId, p_email: p.email });
     if (error) { toast.error(error.message); return; }
     void refresh();
   }

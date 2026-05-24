@@ -22,11 +22,16 @@ export function makeMockClient(tables: Record<string, Row[]>, rpc: Record<string
     };
   }
   function removeChannel() { /* noop */ }
-  return {
+  const rpcImpl = vi.fn((name: string, args: unknown) =>
+    Promise.resolve({ data: rpc[name]?.(args) ?? null, error: null }));
+  const client = {
     from,
     channel,
     removeChannel,
-    rpc: vi.fn((name: string, args: unknown) => Promise.resolve({ data: rpc[name]?.(args) ?? null, error: null })),
+    rpc: rpcImpl,
+    // db = supabase.schema('shopping') in app code; mock just returns the same surface
+    schema: vi.fn((_name: string) => ({ from, rpc: rpcImpl })),
     auth: { getUser: vi.fn(() => Promise.resolve({ data: { user: { id: 'u1', email: 'me@example.com' } } })) },
   };
+  return client;
 }

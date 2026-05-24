@@ -3,9 +3,10 @@ import { renderHook, act } from '@testing-library/react';
 import { makeMockClient } from '../helpers/mockSupabase';
 
 const rpcSpy = vi.fn(() => 'EVT1');
-vi.mock('../../lib/supabase', () => ({
-  supabase: makeMockClient({}, { complete_checkout: rpcSpy }),
-}));
+vi.mock('../../lib/supabase', () => {
+  const mock = makeMockClient({}, { complete_checkout: rpcSpy });
+  return { supabase: mock, db: mock.schema('shopping'), SHOPPING_SCHEMA: 'shopping' };
+});
 
 describe('useCheckout', () => {
   it('calls complete_checkout RPC with normalized payload', async () => {

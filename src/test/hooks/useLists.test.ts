@@ -13,7 +13,7 @@ vi.mock('../../lib/supabase', () => {
       { id: 'M1', list_id: 'L3', user_id: 'u1', invited_email: 'me@example.com', role: 'editor', invited_by: 'u2', invited_at: 't', joined_at: 't' },
     ],
   });
-  return { supabase: mock };
+  return { supabase: mock, db: mock.schema('shopping'), SHOPPING_SCHEMA: 'shopping' };
 });
 
 beforeEach(() => vi.clearAllMocks());

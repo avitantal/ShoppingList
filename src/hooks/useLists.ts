@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { supabase, type ShoppingList } from '../lib/supabase';
+import { supabase, db, SHOPPING_SCHEMA, type ShoppingList } from '../lib/supabase';
 
 export function useLists() {
   const [owned, setOwned]   = useState<ShoppingList[]>([]);
@@ -12,7 +12,7 @@ export function useLists() {
     const uid = user?.user?.id;
     if (!uid) { setOwned([]); setShared([]); setLoading(false); return; }
 
-    const { data: all } = await supabase
+    const { data: all } = await db
       .from('shopping_lists')
       .select('*')
       .is('archived_at', null)
@@ -20,8 +20,25 @@ export function useLists() {
       .order('created_at', { ascending: true });
 
     const lists = (all ?? []) as ShoppingList[];
-    setOwned( lists.filter(l => l.owner_id === uid));
+    const ownedLists = lists.filter(l => l.owner_id === uid);
+    setOwned(ownedLists);
     setShared(lists.filter(l => l.owner_id !== uid));
+
+    // Auto-create a default list on first ShoppingList load. (We do this here
+    // instead of via an auth.users trigger so we don't pollute the shared
+    // auth.users table with side effects for non-ShoppingList users.)
+    if (ownedLists.length === 0) {
+      const { data: newId } = await db.rpc('create_list', { p_name: 'הרשימה שלי', p_make_default: true });
+      if (newId) {
+        const { data: refreshed } = await db
+          .from('shopping_lists').select('*').is('archived_at', null)
+          .order('is_default', { ascending: false }).order('created_at', { ascending: true });
+        const all2 = (refreshed ?? []) as ShoppingList[];
+        setOwned(all2.filter(l => l.owner_id === uid));
+        setShared(all2.filter(l => l.owner_id !== uid));
+      }
+    }
+
     setLoading(false);
   }, []);
 
@@ -43,7 +60,7 @@ export function useLists() {
       channel = supabase
         .channel(`lists:membership:${uid}:${Math.random().toString(36).slice(2)}`)
         .on('postgres_changes',
-            { event: '*', schema: 'public', table: 'list_members', filter: `user_id=eq.${uid}` },
+            { event: '*', schema: SHOPPING_SCHEMA, table: 'list_members', filter: `user_id=eq.${uid}` },
             () => { void refresh(); });
       channel.subscribe();
     });
