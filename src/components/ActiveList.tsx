@@ -8,7 +8,7 @@ import { CheckoutDialog } from './CheckoutDialog';
 interface Props { listId: string; }
 
 export function ActiveList({ listId }: Props) {
-  const { items, addItem, setInCart, deleteItem, refresh } = useListItems(listId);
+  const { items, addItem, setInCart, updateItem, deleteItem, refresh } = useListItems(listId);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const cartCount = useMemo(() => items.filter(i => i.is_in_cart).length, [items]);
 
@@ -21,6 +21,7 @@ export function ActiveList({ listId }: Props) {
           : items.map(it => (
               <ItemRow key={it.id} item={it}
                        onToggle={(next) => setInCart(it.id, next)}
+                       onQtyChange={(next) => updateItem(it.id, { qty: next })}
                        onDelete={() => deleteItem(it.id)} />
             ))}
       </div>

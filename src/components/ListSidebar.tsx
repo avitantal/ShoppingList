@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Plus, History, ChevronLeft } from 'lucide-react';
+import { Plus, History, ChevronLeft, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useLists } from '../hooks/useLists';
 import { NewListDialog } from './NewListDialog';
+import { db } from '../lib/supabase';
 import { cn } from '../lib/utils';
 
 interface Props {
@@ -15,6 +17,14 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
   const { owned, shared, refresh } = useLists();
   const [creating, setCreating] = useState(false);
 
+  async function archive(listId: string, name: string) {
+    if (!window.confirm(`למחוק את "${name}"?`)) return;
+    const { error } = await db.rpc('archive_list', { p_list_id: listId });
+    if (error) { toast.error(error.message); return; }
+    toast.success('הרשימה נמחקה');
+    void refresh();
+  }
+
   return (
     <aside className="w-72 bg-surface border-l border-border h-full flex flex-col">
       <div className="flex items-center justify-between p-3 border-b border-border">
@@ -25,12 +35,19 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
         <section className="p-2">
           <ul>
             {owned.map(l => (
-              <li key={l.id}>
-                <button className={cn('w-full text-right px-3 py-2 rounded-lg text-sm',
+              <li key={l.id} className="group flex items-center gap-1">
+                <button className={cn('flex-1 text-right px-3 py-2 rounded-lg text-sm',
                                       activeListId === l.id ? 'bg-accent text-white' : 'hover:bg-bg')}
                         onClick={() => onSelect(l.id)}>
                   {l.name}{l.is_default && <span className="text-xs text-muted mr-2">(ברירת מחדל)</span>}
                 </button>
+                {!l.is_default && (
+                  <button onClick={() => void archive(l.id, l.name)}
+                          className="btn-ghost p-1.5 text-muted hover:text-red-400 opacity-60 hover:opacity-100"
+                          aria-label={`מחק את ${l.name}`}>
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
