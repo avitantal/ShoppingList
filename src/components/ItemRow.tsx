@@ -1,9 +1,13 @@
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useSwipeable } from 'react-swipeable';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ListItem } from '../lib/supabase';
 import { formatILS } from '../lib/format';
 import { cn } from '../lib/utils';
+
+const REVEAL_WIDTH = 80;
+const REVEAL_THRESHOLD = 40;
+const BASE_PADDING = 12;
 
 interface Props {
   item: ListItem;
@@ -14,16 +18,36 @@ interface Props {
 
 export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
   const [revealed, setRevealed] = useState(false);
+  const [dragX, setDragX] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const justSwiped = useRef(false);
+
   const handlers = useSwipeable({
-    onSwipedRight: () => setRevealed(true),
-    onSwipedLeft:  () => setRevealed(false),
+    onSwiping: ({ deltaX }) => {
+      setDragging(true);
+      const base = revealed ? REVEAL_WIDTH : 0;
+      setDragX(Math.max(0, Math.min(REVEAL_WIDTH, base + deltaX)));
+    },
+    onSwiped: ({ deltaX }) => {
+      setDragging(false);
+      const base = revealed ? REVEAL_WIDTH : 0;
+      const open = base + deltaX >= REVEAL_THRESHOLD;
+      setRevealed(open);
+      setDragX(open ? REVEAL_WIDTH : 0);
+      justSwiped.current = true;
+      setTimeout(() => { justSwiped.current = false; }, 100);
+    },
     trackMouse: true,
-    delta: 30,
+    delta: 5,
+    preventScrollOnSwipe: true,
   });
 
   useEffect(() => {
     if (!revealed) return;
-    const t = setTimeout(() => setRevealed(false), 3500);
+    const t = setTimeout(() => {
+      setRevealed(false);
+      setDragX(0);
+    }, 3500);
     return () => clearTimeout(t);
   }, [revealed]);
 
@@ -35,6 +59,12 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
     onQtyChange(Number(item.qty) + 1);
   }
 
+  function dismiss() {
+    if (!revealed || justSwiped.current) return;
+    setRevealed(false);
+    setDragX(0);
+  }
+
   return (
     <div className="relative overflow-hidden">
       <button onClick={onDelete}
@@ -44,10 +74,16 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
         <Trash2 size={18} />
         מחק
       </button>
-      <div className={cn('flex items-center gap-2 p-3 border-b border-border bg-bg transition-transform duration-200 ease-out touch-pan-y',
-                         revealed ? 'translate-x-20' : 'translate-x-0')}
+      <div className={cn(
+            'flex items-center gap-2 py-3 pe-3 border-b border-border bg-bg',
+            !dragging && 'transition-[transform,padding] duration-200 ease-out'
+          )}
+           style={{
+             transform: `translateX(${dragX}px)`,
+             paddingInlineStart: `${BASE_PADDING + dragX}px`,
+           }}
            {...handlers}
-           onClick={() => revealed && setRevealed(false)}>
+           onClick={dismiss}>
         <input type="checkbox" checked={item.is_in_cart}
                onChange={e => onToggle(e.target.checked)}
                onClick={e => e.stopPropagation()}
