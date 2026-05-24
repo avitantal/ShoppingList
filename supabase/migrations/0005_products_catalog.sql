@@ -132,7 +132,7 @@ drop function if exists shopping.add_item(uuid, text, numeric, text, text);
 create or replace function shopping.add_item(
   p_list_id uuid,
   p_name    text,
-  p_qty     numeric default 1,
+  p_qty     numeric default null,
   p_unit    text    default null,
   p_notes   text    default null,
   p_barcode text    default null
@@ -164,7 +164,7 @@ begin
     (list_id, name, qty, unit, notes, estimated_price, barcode, created_by)
   values
     (p_list_id, p_name,
-     coalesce(p_qty, 1),
+     coalesce(p_qty, v_unit_qty, 1),
      coalesce(p_unit, v_unit),
      p_notes,
      v_price,
@@ -196,9 +196,15 @@ begin
   end if;
 
   insert into shopping.refresh_log (chain_code, triggered_by)
-    values (p_chain_code, 'manual:' || coalesce(auth.uid()::text, 'unknown'))
+    values (p_chain_code, 'manual:' || auth.uid()::text)
     returning id into v_log_id;
 
+  -- NOTE: app.service_role_key is set as a database-wide GUC (see Task C1).
+  -- Custom GUCs in Postgres have no ACL — any authenticated session can read
+  -- this value via SHOW or current_setting(). The trust model here assumes
+  -- all `authenticated` users are also app owners; revisit before opening
+  -- the app to untrusted users. Alternative: migrate to Supabase Vault and
+  -- read via vault.decrypted_secrets in a SECURITY DEFINER helper.
   perform net.http_post(
     url     := current_setting('app.functions_url') || '/refresh-products',
     headers := jsonb_build_object(
