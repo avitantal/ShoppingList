@@ -1,19 +1,19 @@
 # Handoff — Shopping List
 
-**Last updated:** 2026-05-24
-**Current state:** Code complete (v0.9.0). Production deployed. OAuth configured. **Pending: verify Google sign-in works on the live site.**
+**Last updated:** 2026-05-24 (post-DB-consolidation)
+**Current state:** v0.10.2 deployed. ShoppingList now lives in the same Supabase project as ProjectsManagerWeb under a dedicated `shopping` schema. **Working end-to-end:** sign-in, list creation, item add, realtime, checkbox toggle. **Known gap:** no UI to edit `qty` / `unit` / `estimated_price` on a list item after it's added (see "Open design gap" below).
 
 ---
 
 ## What this is
 
-A multi-user, real-time shopping list web app. Architecture mirrors `Claude_Projects/ProjectsManagerWeb` (React 19 + TS + Vite + Tailwind RTL + Supabase) with two new capabilities: multiple named lists per user, and co-edit sharing by Gmail address. Designed to be safely manageable by Claude via the user's Supabase MCP server (RLS-protected).
+A multi-user, real-time shopping list web app. React 19 + TS + Vite + Tailwind RTL + Supabase, mirroring `Claude_Projects/ProjectsManagerWeb`. Two distinguishing capabilities: multiple named lists per user, and co-edit sharing by Gmail address. Designed to be safely manageable by Claude via the user's Supabase MCP (RLS-protected).
 
-**Out of scope (deferred to phase 2):** automatic price fetching from Israeli supermarkets via MCP, home inventory + auto-generated lists, email invite delivery, read-only share links.
+**Out of scope (deferred to phase 2):** auto-fetching prices from Israeli supermarkets via MCP, home inventory + auto-generated lists, email invite delivery, read-only share links.
 
 ---
 
-## Locations
+## Where everything lives (post-consolidation)
 
 | Thing | Where |
 |---|---|
@@ -22,75 +22,105 @@ A multi-user, real-time shopping list web app. Architecture mirrors `Claude_Proj
 | Implementation plan | `docs/superpowers/plans/2026-05-23-shopping-list.md` |
 | GitHub repo | https://github.com/avitantal/ShoppingList (public) |
 | Live app | https://avitantal.github.io/ShoppingList/ |
-| Privacy / Terms | https://avitantal.github.io/ShoppingList/privacy.html · `/terms.html` · `/home.html` (meta-refresh, used as OAuth home URL) |
-| Supabase project | https://cddyczwevfpnnbbdilmq.supabase.co |
-| Local `.env.local` | `C:\Users\avita\Claude_Projects\ShoppingList\.env.local` (has Supabase URL + anon key; **NOT in git**) |
-| GitHub Actions secrets | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` set via `gh secret set` |
+| Privacy / Terms | https://avitantal.github.io/ShoppingList/privacy.html · `/terms.html` · `/home.html` |
+| **Supabase project (NEW)** | `xgihixrhosbxyloeoxnv` — **shared with ProjectsManagerWeb** under schema `shopping` |
+| Supabase URL | https://xgihixrhosbxyloeoxnv.supabase.co |
+| Old Supabase (deprecated) | `cddyczwevfpnnbbdilmq` — still active but unused; can be paused/deleted after ~1 week of stability |
+| Local `.env.local` | Points to `xgihixrhosbxyloeoxnv` — has Supabase URL + anon key (**NOT in git**) |
+| GitHub Actions secrets | `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` set to `xgihixrhosbxyloeoxnv` |
 
 ---
 
-## What's done
+## Migration history
 
-- 28 commits, clean history, v0.9.0
-- All unit tests pass (8/8 via Vitest), lint clean, build clean
-- Supabase migration `supabase/migrations/0001_init.sql` (405 lines) **applied** — 5 tables, 16+ RLS policies, 7 RPCs, 3 views, `handle_new_user` trigger, `is_list_member` helper, `set_updated_at` trigger
-- GitHub Pages deploy workflow at `.github/workflows/deploy.yml` — auto-deploys on push to `master`, uses `vite.config.ts` `base: process.env.GITHUB_ACTIONS ? '/ShoppingList/' : '/'`
-- Google OAuth Client created (Web application) with:
-  - Authorized JS origins: `https://avitantal.github.io`, `http://localhost:5173`
-  - Authorized redirect URIs: `https://cddyczwevfpnnbbdilmq.supabase.co/auth/v1/callback`
-- OAuth consent screen: Testing mode, `avitantal@gmail.com` added as test user, Home/Privacy/Terms URLs configured, authorized domain `avitantal.github.io`
-- Supabase Google provider: Client ID + Secret pasted in, enabled
-- Supabase Auth URL Config: **NEEDS VERIFICATION** — Site URL should be `https://avitantal.github.io/ShoppingList/`; Redirect URLs should include both prod and `http://localhost:5173/`
+1. `0001_init.sql` — original schema in `public` of `cddyczwevfpnnbbdilmq`. **Superseded** by 0003.
+2. `0002_rpcs_security_definer.sql` — changed RPCs from `security invoker` to `security definer` to bypass an RLS-with-check edge case that rejected `create_list` INSERTs. Applied to old project.
+3. **`0003_consolidate_into_shopping_schema.sql`** — re-creates everything under `shopping.*` in PMW Supabase. Drops the `auth.users` `handle_new_user` trigger; default-list bootstrap is now app-level (see useLists). Applied to new project.
+4. **`0004_ensure_default_list_idempotent.sql`** — adds `shopping.ensure_default_list()` with `pg_advisory_xact_lock` per user, so concurrent first-load refresh() calls can't race-create duplicate "הרשימה שלי" rows. Also cleans up dups created before the fix. Applied to new project.
+
+`0001` + `0002` remain in the repo as historical record of the old project; they will not be re-applied.
 
 ---
 
-## What's open — pick up here
+## Code conventions for the consolidated DB
 
-### Immediate (5 min)
-1. **Verify Google sign-in works** on https://avitantal.github.io/ShoppingList/ → click "כניסה עם Google" → sign in as `avitantal@gmail.com` → bypass the "unverified app" warning (Advanced → Go to ... unsafe) → should land on app shell with "הרשימה שלי" auto-created.
-2. **Smoke test:** add an item ("חלב 3%"), check it, "סיום קנייה" with chain "שופרסל" + price 6.90 → toast success → open היסטוריה → see the event.
-3. **Share test:** open Share dialog, enter a second Gmail you control, sign in with that account in incognito, see the shared list appear in "ששותפו איתי".
+- **Never** use `supabase.from('shopping_lists')` directly. Use the `db` export from `src/lib/supabase.ts`:
+  ```ts
+  import { db } from '../lib/supabase';
+  await db.from('shopping_lists').select('*');
+  await db.rpc('create_list', {...});
+  ```
+  `db` is `supabase.schema('shopping')`.
+- Realtime channels: use the `SHOPPING_SCHEMA` constant when constructing `postgres_changes` filters:
+  ```ts
+  supabase.channel(...).on('postgres_changes', { schema: SHOPPING_SCHEMA, table: 'list_items', ... });
+  ```
+- Channel names should be made unique per mount (suffix with `Math.random()`) — StrictMode reuses by name and throws "cannot add callbacks after subscribe".
+- Always check the `error` field on `await db.from(...)` and `await db.rpc(...)` — the UI surfaces errors via `useLists`' `error` state in AppShell.
 
-### If sign-in fails
-Likely causes, in order:
-- **`redirect_uri_mismatch`** → check Supabase Auth → URL Configuration: Site URL + Redirect URLs must include `https://avitantal.github.io/ShoppingList/`. Google's redirect URI list is correct.
-- **"Access blocked: Authorization Error"** → the signed-in Gmail isn't in Test users on the OAuth Consent Screen. Add it.
-- **Lands at app but bounced back to sign-in** → probably session not persisting. Check browser console for Supabase errors.
+---
 
-### Phase-2 work (deferred)
-- E2E tests: spec exists at `e2e/sharing.spec.ts`. Needs `SUPABASE_SERVICE_ROLE_KEY` + `E2E_USER_A_*` / `E2E_USER_B_*` env vars added to `.env.local`, then `npx playwright install chromium` (one-time, ~200MB) and `npm run e2e`. The dev-only password sign-in form in `Auth.tsx` (gated by `import.meta.env.DEV`) is the path for these tests.
-- Auto-fetching prices via MCP — `estimated_price` column already exists; only need a fetcher (Israeli price-feed sources documented in spec §11).
-- Home inventory + auto-list generation — spec §4.7, §11.
-- Email invites via Edge Function for not-yet-registered emails — spec §11.
+## Working end-to-end as of v0.10.2
+
+- Google OAuth sign-in via the consolidated Supabase Auth.
+- Default list "הרשימה שלי" is created on first sign-in via the idempotent `ensure_default_list` RPC.
+- Item add via `add_item` RPC.
+- Checkbox toggle updates `is_in_cart` with optimistic UI + realtime broadcast.
+- Swipe-to-delete works (`db.from('list_items').delete()`).
+- New list creation via `create_list`.
+- Version label `v{x.y.z}` shown at top of header (auto-wired to package.json via Vite `define`).
+
+---
+
+## Open design gap — item editing UI (NOT TOUCHED)
+
+Per spec §4.4 + §7.2, a `list_items` row has `qty`, `unit`, `estimated_price`. `ItemRow.tsx` shows them only when they're **non-default** (qty ≠ 1 or unit present). **But there is no UI to edit them after the item is added.** `AddItemInput.tsx` only takes a name.
+
+The spec didn't define the edit flow. Options:
+- **A:** Tap on item name opens an edit dialog (name + qty + unit + price + notes).
+- **B:** Inline editable fields next to the name (qty stepper, unit dropdown, price input).
+- **C:** Long-press / context menu → "Edit item".
+
+`useListItems.updateItem` already supports the mutation; only the UI is missing. Pick one and wire it up in a follow-up session.
+
+---
+
+## Manual Supabase configuration (already done)
+
+For future reference if anyone has to redo this in a fresh project:
+
+1. **Exposed schemas (PostgREST):** Supabase Dashboard → Settings → API → "Exposed schemas" must include `shopping` alongside `public`. PostgREST returns `PGRST106: Invalid schema: shopping` if it's missing.
+2. **Auth → URL Configuration:** Site URL is PMW's (`https://avitantal.github.io/ProjectsManagerWeb`). Redirect URLs include `https://avitantal.github.io/ShoppingList/**` and `http://localhost:5173/**`.
+3. **Google OAuth Client (Cloud Console):** Authorized redirect URIs include `https://xgihixrhosbxyloeoxnv.supabase.co/auth/v1/callback`. The old `cddyczwevfpnnbbdilmq` URI is kept for now as a rollback safety net.
+4. **GitHub Actions secrets:** `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` updated via `gh secret set`.
+
+---
+
+## Phase-2 backlog
+
+- **Item editing UI** (see "Open design gap" above) — highest priority.
+- **E2E tests via Playwright.** Spec at `e2e/sharing.spec.ts`. Needs `SUPABASE_SERVICE_ROLE_KEY` + `E2E_USER_A_*` / `E2E_USER_B_*` env vars in `.env.local`, then `npx playwright install chromium` and `npm run e2e`. The dev-only password sign-in form in `Auth.tsx` (gated by `import.meta.env.DEV`) is the path for these tests.
+- **Auto-fetching prices via MCP** — `estimated_price` column already exists; only need a fetcher (chp.co.il / supermarket OData / Israeli price-feed MCP).
+- **Home inventory + auto-list generation** — spec §4.7, §11.
+- **Email invites via Edge Function** for not-yet-registered emails — spec §11.
+- **Pause / delete the old `cddyczwevfpnnbbdilmq` project** after ~1 week of stability on the consolidated one (and remove the old redirect URI from the Google OAuth Client).
 
 ---
 
 ## Conventions / user preferences
 
 - Hebrew RTL UI throughout; English in code/schema for MCP-friendliness.
-- Always bump `package.json` version + commit when changing code (per global `~/.claude/CLAUDE.md`).
+- Always bump `package.json` version on code changes — and if the UI has no version label, add one at the top of the page (the v-label is in `AppShell.tsx`, wired through Vite `define` → `__APP_VERSION__` global).
 - Concise responses, no trailing summaries unless asked.
 - Explain *why* (1-2 sentences) before significant action.
 - Commit + push only when asked.
-- Don't skip `superpowers:writing-plans` between `brainstorming` and implementation, even if user gives an implementation directive ("create the project"). They mean go through the chain. Saved in user memory.
-- Use the subagent-driven-development flow (one fresh subagent per task / batch, two-stage review for substantive code, lighter for trivial config).
-- `gh` CLI is installed and authenticated as `avitantal` (verified during setup).
-
----
-
-## Known tech debt / minor issues
-
-- `useListItems.ts` and `usePurchaseHistory.ts` use `as any` / `as unknown as` casts where the mock-Supabase chain doesn't expose `update`/`delete`/`in` methods. Acceptable for now; could be cleaned by extending `src/test/helpers/mockSupabase.ts` to add chained method stubs.
-- README and MCP_GUIDE got committed in the same commit as `App.tsx` (commit `6485685`) instead of three separate commits — purely cosmetic.
-- GitHub Actions warns about Node.js 20 deprecation (June 2026 cutoff) — non-blocking; should upgrade `actions/setup-node` to v5 with `node-version: '22'` (already done) and watch for new versions of `configure-pages`/`deploy-pages`/`upload-artifact`.
-- `package.json` shows `shoppinglist@0.9.0` — bump to 1.0.0 after smoke + e2e pass.
+- Don't skip `superpowers:writing-plans` between brainstorming and implementation, even if the user gives an implementation directive.
+- `gh` CLI is installed and authenticated as `avitantal`.
 
 ---
 
 ## How to resume in a fresh Claude session
 
-Open `C:\Users\avita\Claude_Projects\ShoppingList\` in Claude Code and paste this prompt:
+Open `C:\Users\avita\Claude_Projects\ShoppingList\` in Claude Code and paste:
 
-> Resuming work on Shopping List. Read `HANDOFF.md` for current state, then look at `docs/superpowers/specs/...` and `docs/superpowers/plans/...` for the design and plan. Last open item: verify Google OAuth sign-in on the live site at https://avitantal.github.io/ShoppingList/. Continue from there.
-
-The new agent should NOT redo planning or scaffolding — everything from Stages 0-8 is done.
+> Resuming work on Shopping List. Read `HANDOFF.md` for current state. Open items: (a) item-editing UI (see "Open design gap"), (b) phase-2 backlog. DB lives in shared PMW Supabase under `shopping` schema — use the `db` export from `src/lib/supabase.ts` and the `claude.ai Supabase` MCP with `project_id: xgihixrhosbxyloeoxnv` and `schemas: ["shopping"]` for list_tables / SQL.
