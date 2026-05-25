@@ -12,8 +12,9 @@ test.describe.serial('sharing + realtime', () => {
     bId = await ensureUser(B.email, B.password);
     await purgeListsForUser(aId);
     await purgeListsForUser(bId);
-    // Re-bootstrap default lists via trigger by creating one directly:
-    await admin.rpc('create_list', { p_name: 'הרשימה שלי' }).single().throwOnError();
+    // Seed A's default list directly. service_role has no auth.uid(),
+    // so create_list (security definer, requires auth) can't be used here.
+    await admin.from('shopping_lists').insert({ owner_id: aId, name: 'הרשימה שלי', is_default: true }).throwOnError();
   });
 
   test('A creates a list, shares with B, B sees it and edits in realtime', async ({ browser }) => {
