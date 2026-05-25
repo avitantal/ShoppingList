@@ -116,10 +116,14 @@ export function AddItemInput({ onAdd }: Props) {
                     {r.chain_display_name}
                   </span>
                 </div>
+                {r.manufacturer && (
+                  <div className="text-xs text-foreground/80 font-medium truncate mt-0.5">
+                    {r.manufacturer}
+                  </div>
+                )}
                 <div className="text-xs text-muted-foreground">
                   {formatPackageSize(r.unit_qty, r.unit_measure)}
                   ₪{r.price.toFixed(2)}
-                  {r.manufacturer ? ` · ${r.manufacturer}` : ''}
                 </div>
               </li>
             );

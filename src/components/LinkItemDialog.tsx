@@ -39,7 +39,7 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
             <X size={18} />
           </button>
         </div>
-        <input autoFocus className="input mb-3"
+        <input className="input mb-3"
                placeholder="חפש מוצר..."
                value={query}
                onChange={e => setQuery(e.target.value)} />
@@ -70,10 +70,14 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
                         {r.chain_display_name}
                       </span>
                     </div>
+                    {r.manufacturer && (
+                      <div className="text-xs text-foreground/80 font-medium truncate mt-0.5">
+                        {r.manufacturer}
+                      </div>
+                    )}
                     <div className="text-xs text-muted">
                       {formatPackageSize(r.unit_qty, r.unit_measure)}
                       ₪{r.price.toFixed(2)}
-                      {r.manufacturer ? ` · ${r.manufacturer}` : ''}
                     </div>
                   </li>
                 );
