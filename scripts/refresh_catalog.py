@@ -119,11 +119,16 @@ def ingest_one(chain_code: str, scraper_name: str, sb) -> tuple[int, int]:
         # file — one per chain is enough since the product list is
         # identical across stores and we only persist one price per
         # (barcode, chain).
-        ScarpingTask(
+        task = ScarpingTask(
             enabled_scrapers=[scraper_name],
             files_types=["PRICE_FULL_FILE"],
             output_configuration={"output_mode": "disk", "storage_path": out_dir},
-        ).start(limit=1)
+        )
+        task.start(limit=1)
+        # start() returns immediately — the scraper runs in a daemon thread.
+        # join() blocks until the download finishes; without it we'd glob
+        # the storage dir before any files land.
+        task.join()
 
         paths = sorted(
             glob.glob(os.path.join(out_dir, "**", "PriceFull*"), recursive=True)
