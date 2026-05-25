@@ -113,16 +113,21 @@ def read_gz_or_xml(path: str) -> bytes:
 def ingest_one(chain_code: str, scraper_name: str, sb) -> tuple[int, int]:
     print(f"--- {chain_code} (scraper={scraper_name}) ---", flush=True)
     with tempfile.TemporaryDirectory() as out_dir:
-        # il-supermarket-scraper 1.x API: storage_path lives inside
-        # output_configuration; files_types still controls which file kinds
-        # to fetch. .start(limit=1) caps downloads to a single PriceFull
-        # file — one per chain is enough since the product list is
-        # identical across stores and we only persist one price per
-        # (barcode, chain).
+        # il-supermarket-scraper 1.x API:
+        #   - output_configuration uses key 'base_storage_path' (NOT
+        #     'storage_path'); with the wrong key the lib silently falls
+        #     back to ./dumps and our glob below misses it.
+        #   - status_configuration also writes to disk; redirect both into
+        #     our tempdir so we don't pollute CWD with state files.
+        #   - .start(limit=1) caps downloads to a single PriceFull file.
+        #     One per chain is enough — the product list is identical
+        #     across stores and we only persist one price per (barcode,
+        #     chain) anyway.
         task = ScarpingTask(
             enabled_scrapers=[scraper_name],
             files_types=["PRICE_FULL_FILE"],
-            output_configuration={"output_mode": "disk", "storage_path": out_dir},
+            output_configuration={"output_mode": "disk", "base_storage_path": out_dir},
+            status_configuration={"database_type": "json", "base_path": os.path.join(out_dir, "status")},
         )
         task.start(limit=1)
         # start() returns immediately — the scraper runs in a daemon thread.
