@@ -17,10 +17,27 @@ export function ActiveList({ listId }: Props) {
   return (
     <div className="flex flex-col h-full">
       <AddItemInput
-        onAdd={async (name, barcode) => {
+        onAdd={async (name, barcode, suggestion) => {
           const result = await addItem(name, barcode);
           if (barcode && result && !result.appliedBarcode) {
             toast('המוצר נוסף ללא מחיר');
+            return;
+          }
+          // Free-text path: if a catalog match exists, offer a one-click swap.
+          if (!barcode && suggestion && result?.itemId) {
+            const newItemId = result.itemId;
+            const sug = suggestion;
+            toast(`האם התכוונת ל-${sug.name}?`, {
+              action: {
+                label: 'החלף',
+                onClick: () => {
+                  void (async () => {
+                    await deleteItem(newItemId);
+                    await addItem(sug.name, sug.barcode);
+                  })();
+                },
+              },
+            });
           }
         }}
       />

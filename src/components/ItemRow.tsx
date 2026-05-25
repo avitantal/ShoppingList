@@ -81,6 +81,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
            style={{
              transform: `translateX(${dragX}px)`,
              paddingInlineStart: `${BASE_PADDING + dragX}px`,
+             touchAction: 'pan-y',
            }}
            {...handlers}
            onClick={dismiss}>
@@ -90,10 +91,12 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
                className="w-5 h-5 accent-indigo-500 shrink-0" />
         <div className="flex-1 min-w-0">
           <div className={cn('text-sm font-medium truncate', item.is_in_cart && 'line-through text-muted')}>{item.name}</div>
-          {(item.unit || item.estimated_price != null) && (
+          {(item.unit || item.estimated_price != null || !item.barcode) && (
             <div className="text-xs text-muted truncate">
               {item.unit ?? ''}{item.unit && item.estimated_price != null ? ' · ' : ''}
-              {item.estimated_price != null ? formatILS(item.estimated_price) : ''}
+              {item.estimated_price != null
+                ? formatILS(item.estimated_price)
+                : !item.barcode ? <span className="text-muted/70">אין מחיר</span> : null}
             </div>
           )}
         </div>

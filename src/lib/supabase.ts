@@ -67,6 +67,7 @@ export interface SearchProductResult extends Product {
   price: number;
   chain_code: string;
   chain_display_name: string;
+  previously_bought: boolean;
 }
 
 // Brand colors used by the autocomplete chain badge. Keep this in sync with

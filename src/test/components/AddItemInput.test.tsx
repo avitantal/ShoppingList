@@ -30,7 +30,7 @@ describe('AddItemInput combobox', () => {
     render(<AddItemInput onAdd={onAdd} />);
     const input = screen.getByPlaceholderText(/הוסף פריט/);
     await userEvent.type(input, 'משהו ייחודי{Enter}');
-    expect(onAdd).toHaveBeenCalledWith('משהו ייחודי', undefined);
+    expect(onAdd).toHaveBeenCalledWith('משהו ייחודי', undefined, null);
   });
 
   it("selecting a row calls onAdd with that row's barcode", async () => {
@@ -39,7 +39,7 @@ describe('AddItemInput combobox', () => {
     await userEvent.type(screen.getByPlaceholderText(/הוסף פריט/), 'חלב');
     await waitFor(() => expect(screen.getByText(/חלב תנובה 3%/)).toBeInTheDocument());
     await userEvent.click(screen.getByText(/חלב תנובה 3%/));
-    expect(onAdd).toHaveBeenCalledWith('חלב תנובה 3%', '1');
+    expect(onAdd).toHaveBeenCalledWith('חלב תנובה 3%', '1', null);
   });
 
   it('renders a chain badge per result row', async () => {

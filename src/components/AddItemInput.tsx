@@ -1,10 +1,14 @@
-import { Plus } from 'lucide-react';
+import { Plus, Star } from 'lucide-react';
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useProductSearch } from '../hooks/useProductSearch';
-import { CHAIN_BADGE_COLORS } from '../lib/supabase';
+import { CHAIN_BADGE_COLORS, type SearchProductResult } from '../lib/supabase';
 
 interface Props {
-  onAdd: (name: string, barcode?: string) => Promise<void> | void;
+  onAdd: (
+    name: string,
+    barcode: string | undefined,
+    suggestion: SearchProductResult | null
+  ) => Promise<void> | void;
 }
 
 const BADGE_FALLBACK = { bg: '#6B7280', fg: '#FFFFFF' };
@@ -27,11 +31,11 @@ export function AddItemInput({ onAdd }: Props) {
   const [highlighted, setHighlighted] = useState(0);
   const { results } = useProductSearch(name);
 
-  async function add(value: string, barcode?: string) {
+  async function add(value: string, barcode: string | undefined, suggestion: SearchProductResult | null = null) {
     if (!value) return;
     setBusy(true);
     try {
-      await onAdd(value, barcode);
+      await onAdd(value, barcode, suggestion);
       setName('');
       setOpen(false);
     } finally { setBusy(false); }
@@ -41,10 +45,21 @@ export function AddItemInput({ onAdd }: Props) {
     e.preventDefault();
     if (open && results[highlighted]) {
       const r = results[highlighted];
-      void add(r.name, r.barcode);
+      void add(r.name, r.barcode, null);
     } else {
-      void add(name.trim());
+      // Free-text submit: surface the best catalog match (if any) so the
+      // parent can offer a one-click swap toast.
+      const typed = name.trim();
+      const suggestion = pickSuggestion(typed, results);
+      void add(typed, undefined, suggestion);
     }
+  }
+
+  function pickSuggestion(typed: string, list: SearchProductResult[]): SearchProductResult | null {
+    if (!typed || list.length === 0) return null;
+    const t = typed.toLowerCase();
+    const hit = list.find(r => r.name.toLowerCase().includes(t));
+    return hit ?? list[0];
   }
 
   function onKey(e: KeyboardEvent<HTMLInputElement>) {
@@ -84,11 +99,16 @@ export function AddItemInput({ onAdd }: Props) {
                 role="option"
                 aria-selected={i === highlighted}
                 onMouseEnter={() => setHighlighted(i)}
-                onMouseDown={(e) => { e.preventDefault(); void add(r.name, r.barcode); }}
+                onMouseDown={(e) => { e.preventDefault(); void add(r.name, r.barcode, null); }}
                 className={`px-3 py-2 cursor-pointer text-sm ${i === highlighted ? 'bg-muted' : ''}`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-medium truncate">{r.name}</div>
+                  <div className="font-medium truncate flex items-center gap-1.5">
+                    {r.previously_bought && (
+                      <Star size={12} className="shrink-0 text-amber-400 fill-amber-400" aria-label="נקנה בעבר" />
+                    )}
+                    <span className="truncate">{r.name}</span>
+                  </div>
                   <span
                     className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded"
                     style={{ backgroundColor: badge.bg, color: badge.fg }}

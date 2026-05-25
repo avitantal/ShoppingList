@@ -46,10 +46,11 @@ export function useListItems(listId: string | null) {
     await refresh();
     // RPC returns table(item_id uuid, barcode_applied boolean) — supabase-js
     // surfaces it as data: [{ item_id, barcode_applied }] or sometimes a single row
-    // depending on Postgrest mode. Normalize to a boolean.
+    // depending on Postgrest mode.
     const row = Array.isArray(data) ? data[0] : data;
     const applied = !!(row && row.barcode_applied);
-    return { appliedBarcode: barcode != null && applied };
+    const itemId = (row && row.item_id) as string | undefined;
+    return { appliedBarcode: barcode != null && applied, itemId };
   }
 
   async function setInCart(itemId: string, inCart: boolean) {
