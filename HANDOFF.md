@@ -1,7 +1,7 @@
 # Handoff — Shopping List
 
-**Last updated:** 2026-05-24 (post-DB-consolidation)
-**Current state:** v0.10.2 deployed. ShoppingList now lives in the same Supabase project as ProjectsManagerWeb under a dedicated `shopping` schema. **Working end-to-end:** sign-in, list creation, item add, realtime, checkbox toggle. **Known gap:** no UI to edit `qty` / `unit` / `estimated_price` on a list item after it's added (see "Open design gap" below).
+**Last updated:** 2026-05-25 (product catalog v0.12.0)
+**Current state:** v0.12.0 ready for deploy. **New in this version:** Israeli supermarket product catalog (Shufersal, ~4,800 products seeded from PriceFull XML). The add-item field is now an autocomplete combobox with chain badges, prices, and unit sizes; the list footer shows a running "סה״כ משוער" total computed from selected items' `estimated_price * qty`. Catalog tables (`shopping.products`, `shopping.product_prices`, `shopping.chains`, `shopping.refresh_log`, `shopping.app_admins`) and RPCs (`search_products`, `add_item` extended with `p_barcode`, `refresh_products_now`) live in migrations 0005–0007. Pivot note: the original plan called for a Deno Edge Function + pg_cron daily refresh; this was dropped after discovering that Rami Levy publishes via FTP-only (no HTTPS path for an Edge Function). The catalog is currently a one-shot seed from `scripts/`; daily refresh becomes a GitHub Action in phase 3.
 
 ---
 
@@ -60,11 +60,15 @@ A multi-user, real-time shopping list web app. React 19 + TS + Vite + Tailwind R
 
 ---
 
-## Working end-to-end as of v0.10.2
+## Working end-to-end as of v0.12.0
 
 - Google OAuth sign-in via the consolidated Supabase Auth.
 - Default list "הרשימה שלי" is created on first sign-in via the idempotent `ensure_default_list` RPC.
-- Item add via `add_item` RPC.
+- Item add via `add_item` RPC, now extended with optional `p_barcode` and a `barcode_applied` return flag.
+- **Product autocomplete combobox** on the add-item field — debounced (200ms), `pg_trgm`-ranked Hebrew search via `shopping.search_products`, ~4,800 Shufersal products seeded with prices, manufacturer, and unit size.
+- **Chain badge per autocomplete row** — colored badge with the chain's display name (Shufersal = red). The `CHAIN_BADGE_COLORS` map in `src/lib/supabase.ts` is multi-chain ready; adding a new chain is a single migration row plus one map entry.
+- **Cart-total footer** ("סה״כ משוער: ₪…") sums `estimated_price × qty` over not-in-cart items. Hidden when no item has a price; shows an ⓘ marker with tooltip when some items lack prices.
+- Toast "המוצר נוסף ללא מחיר" surfaces when a barcode lookup misses between autocomplete selection and insert (rare race).
 - Checkbox toggle updates `is_in_cart` with optimistic UI + realtime broadcast.
 - Swipe-to-delete works (`db.from('list_items').delete()`).
 - New list creation via `create_list`.
@@ -100,7 +104,8 @@ For future reference if anyone has to redo this in a fresh project:
 
 - **Item editing UI** (see "Open design gap" above) — highest priority.
 - **E2E tests via Playwright.** Spec at `e2e/sharing.spec.ts`. Needs `SUPABASE_SERVICE_ROLE_KEY` + `E2E_USER_A_*` / `E2E_USER_B_*` env vars in `.env.local`, then `npx playwright install chromium` and `npm run e2e`. The dev-only password sign-in form in `Auth.tsx` (gated by `import.meta.env.DEV`) is the path for these tests.
-- **Auto-fetching prices via MCP** — `estimated_price` column already exists; only need a fetcher (chp.co.il / supermarket OData / Israeli price-feed MCP).
+- **Daily catalog refresh via GitHub Action** — the one-shot seed in `scripts/fetch_shufersal_pricefull.py` + `scripts/seed_via_temp_rpc.py` becomes a `.github/workflows/refresh-catalog.yml` cron. Re-create the `shopping._seed_catalog` temp RPC at the top of the workflow and drop it at the bottom, or replace with a Vault-backed approach.
+- **Cross-chain comparison** — add 2-3 more chains in `shopping.chains` (Yeinot Bitan also publishes via HTTPS; Rami Levy is FTP-only and would need a bridge). Add their brand colors to `CHAIN_BADGE_COLORS`. Add a chain selector / "השווה" button.
 - **Home inventory + auto-list generation** — spec §4.7, §11.
 - **Email invites via Edge Function** for not-yet-registered emails — spec §11.
 - **Pause / delete the old `cddyczwevfpnnbbdilmq` project** after ~1 week of stability on the consolidated one (and remove the old redirect URI from the Google OAuth Client).

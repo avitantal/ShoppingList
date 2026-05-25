@@ -50,9 +50,30 @@ export interface ListItem {
   sort_order: number;
   created_by: string | null;
   last_purchased_at: string | null;
+  barcode: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export interface Product {
+  barcode: string;
+  name: string;
+  unit_qty: number | null;
+  unit_measure: string | null;
+  manufacturer: string | null;
+}
+
+export interface SearchProductResult extends Product {
+  price: number;
+  chain_code: string;
+  chain_display_name: string;
+}
+
+// Brand colors used by the autocomplete chain badge. Keep this in sync with
+// rows in shopping.chains; a missing entry falls back to neutral gray.
+export const CHAIN_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
+  shufersal: { bg: '#B91C1C', fg: '#FFFFFF' },
+};
 
 export interface PurchaseEvent {
   id: string;

@@ -34,10 +34,22 @@ export function useListItems(listId: string | null) {
     return () => { void supabase.removeChannel(ch); };
   }, [listId, refresh]);
 
-  async function addItem(name: string, qty = 1, unit: string | null = null) {
+  async function addItem(name: string, barcode?: string, qty: number | null = null, unit: string | null = null) {
     if (!listId) return;
-    await db.rpc('add_item', { p_list_id: listId, p_name: name, p_qty: qty, p_unit: unit });
+    const { data } = await db.rpc('add_item', {
+      p_list_id: listId,
+      p_name: name,
+      p_qty: qty,
+      p_unit: unit,
+      p_barcode: barcode ?? null,
+    });
     await refresh();
+    // RPC returns table(item_id uuid, barcode_applied boolean) — supabase-js
+    // surfaces it as data: [{ item_id, barcode_applied }] or sometimes a single row
+    // depending on Postgrest mode. Normalize to a boolean.
+    const row = Array.isArray(data) ? data[0] : data;
+    const applied = !!(row && row.barcode_applied);
+    return { appliedBarcode: barcode != null && applied };
   }
 
   async function setInCart(itemId: string, inCart: boolean) {
