@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 
 function getRedirectTo(): string | undefined {
   if (typeof window === 'undefined') return undefined;
-  return window.location.origin + window.location.pathname;
+  return new URL(import.meta.env.BASE_URL || '/', window.location.origin).toString();
 }
 
 export async function signInWithGoogle(redirectTo = getRedirectTo()) {
