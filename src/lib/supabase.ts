@@ -50,8 +50,21 @@ export interface ListItem {
   sort_order: number;
   created_by: string | null;
   last_purchased_at: string | null;
+  barcode: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Product {
+  barcode: string;
+  name: string;
+  unit_qty: number | null;
+  unit_measure: string | null;
+  manufacturer: string | null;
+}
+
+export interface SearchProductResult extends Product {
+  price: number;
 }
 
 export interface PurchaseEvent {
