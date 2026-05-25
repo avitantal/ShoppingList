@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { Plus, History, ChevronLeft, Trash2 } from 'lucide-react';
+import { Plus, History, ChevronLeft, Trash2, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLists } from '../hooks/useLists';
+import { useAuth } from '../hooks/useAuth';
 import { NewListDialog } from './NewListDialog';
 import { db } from '../lib/supabase';
+import { signOut } from '../lib/googleAuth';
 import { cn } from '../lib/utils';
 
 interface Props {
@@ -15,7 +17,9 @@ interface Props {
 
 export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: Props) {
   const { owned, shared, refresh } = useLists();
+  const { session } = useAuth();
   const [creating, setCreating] = useState(false);
+  const email = session?.user?.email ?? '';
 
   async function archive(listId: string, name: string) {
     if (!window.confirm(`למחוק את "${name}"?`)) return;
@@ -23,6 +27,11 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
     if (error) { toast.error(error.message); return; }
     toast.success('הרשימה נמחקה');
     void refresh();
+  }
+
+  async function doSignOut() {
+    if (!window.confirm('להתנתק?')) return;
+    await signOut();
   }
 
   return (
@@ -73,6 +82,17 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
       <div className="p-2 border-t border-border">
         <button className="btn-ghost w-full gap-2" onClick={onOpenHistory}>
           <History size={16} /> היסטוריית קניות
+        </button>
+      </div>
+      <div className="p-2 border-t border-border">
+        {email && (
+          <div className="px-3 py-1 text-xs text-muted truncate" title={email}>
+            {email}
+          </div>
+        )}
+        <button className="btn-ghost w-full gap-2 text-muted hover:text-red-400"
+                onClick={() => void doSignOut()}>
+          <LogOut size={16} /> התנתק / החלף משתמש
         </button>
       </div>
       {creating && (
