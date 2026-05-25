@@ -101,7 +101,7 @@ export function AddItemInput({ onAdd }: Props) {
             const badge = CHAIN_BADGE_COLORS[r.chain_code] ?? BADGE_FALLBACK;
             return (
               <li
-                key={r.barcode}
+                key={`${r.chain_code}:${r.barcode}`}
                 role="option"
                 aria-selected={i === highlighted}
                 onMouseEnter={() => setHighlighted(i)}

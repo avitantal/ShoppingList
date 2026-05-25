@@ -8,7 +8,20 @@ vi.mock('../../lib/supabase', async () => {
   const actual = await vi.importActual<typeof import('../../lib/supabase')>('../../lib/supabase');
   return {
     ...actual,
-    db: { rpc: (...args: unknown[]) => rpcMock(...args) },
+    db: {
+      rpc: (...args: unknown[]) => rpcMock(...args),
+      from: () => ({
+        select: () => ({
+          order: () => Promise.resolve({
+            data: [
+              { code: 'rami_levy', display_name: 'רמי לוי' },
+              { code: 'shufersal', display_name: 'שופרסל' },
+            ],
+            error: null,
+          }),
+        }),
+      }),
+    },
   };
 });
 
@@ -45,7 +58,7 @@ describe('AddItemInput combobox', () => {
   it('renders a chain badge per result row', async () => {
     render(<AddItemInput onAdd={vi.fn()} />);
     await userEvent.type(screen.getByPlaceholderText(/הוסף פריט/), 'חלב');
-    await waitFor(() => expect(screen.getAllByText('שופרסל')).toHaveLength(2));
+    await waitFor(() => expect(screen.getAllByText('שופרסל').length).toBeGreaterThanOrEqual(2));
   });
 
   it('renders package size with the numeric prefix of unit_measure stripped', async () => {

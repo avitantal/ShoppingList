@@ -22,11 +22,6 @@ function formatPackageSize(qty: number | null, measure: string | null): string {
 
 export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
   const [query, setQuery] = useState(initialQuery);
-  // Track whether the user has manually typed in the search box. Until
-  // then, an empty result set with a multi-word query auto-trims the
-  // last word and retries — so "חלב 3% תנובה 1 ליטר" gracefully falls
-  // back to "חלב 3%" → "חלב" instead of dead-ending.
-  const [userEdited, setUserEdited] = useState(false);
   const { included } = useChainFilter();
   const { results, loading } = useProductSearch(query, included);
 
@@ -35,17 +30,6 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-
-  useEffect(() => {
-    if (userEdited || loading) return;
-    if (results.length > 0) return;
-    const trimmed = query.trim();
-    if (trimmed.length < 2) return;
-    const words = trimmed.split(/\s+/);
-    if (words.length <= 1) return;
-    words.pop();
-    setQuery(words.join(' '));
-  }, [userEdited, loading, results, query]);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2"
@@ -61,7 +45,7 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
         <input className="input mb-2"
                placeholder="חפש מוצר..."
                value={query}
-               onChange={e => { setUserEdited(true); setQuery(e.target.value); }} />
+               onChange={e => setQuery(e.target.value)} />
         <ChainFilter className="mb-3" />
         <div className="flex-1 overflow-y-auto -mx-4 px-4">
           {query.trim().length < 2 ? (
@@ -75,7 +59,7 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
               {results.map(r => {
                 const badge = CHAIN_BADGE_COLORS[r.chain_code] ?? BADGE_FALLBACK;
                 return (
-                  <li key={r.barcode} role="option"
+                  <li key={`${r.chain_code}:${r.barcode}`} role="option"
                       onClick={() => onPick(r)}
                       className="px-3 py-2 cursor-pointer text-sm hover:bg-bg rounded-md border-b border-border last:border-b-0">
                     <div className="flex items-center justify-between gap-2">
