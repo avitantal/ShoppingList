@@ -23,13 +23,17 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
   const justSwiped = useRef(false);
 
   const handlers = useSwipeable({
-    onSwiping: ({ deltaX }) => {
+    onSwiping: ({ deltaX, absX, absY }) => {
+      // Bail when the gesture is primarily vertical — let the browser
+      // scroll the list instead of fighting it with a horizontal drag.
+      if (absY > absX) return;
       setDragging(true);
       const base = revealed ? REVEAL_WIDTH : 0;
       setDragX(Math.max(0, Math.min(REVEAL_WIDTH, base + deltaX)));
     },
-    onSwiped: ({ deltaX }) => {
+    onSwiped: ({ deltaX, absX, absY }) => {
       setDragging(false);
+      if (absY > absX) { setDragX(revealed ? REVEAL_WIDTH : 0); return; }
       const base = revealed ? REVEAL_WIDTH : 0;
       const open = base + deltaX >= REVEAL_THRESHOLD;
       setRevealed(open);
@@ -38,8 +42,11 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
       setTimeout(() => { justSwiped.current = false; }, 100);
     },
     trackMouse: true,
-    delta: 5,
-    preventScrollOnSwipe: true,
+    // Higher threshold + passive listeners (preventScrollOnSwipe: false) so
+    // the browser can scroll vertically smoothly without waiting for JS.
+    // touch-action: pan-y on the row handles the horizontal/vertical split.
+    delta: 18,
+    preventScrollOnSwipe: false,
   });
 
   useEffect(() => {
