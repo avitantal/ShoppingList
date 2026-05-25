@@ -45,7 +45,7 @@ describe('useProductSearch', () => {
 
   it('exposes returned rows as results', async () => {
     rpcMock.mockResolvedValueOnce({
-      data: [{ barcode: '1', name: 'חלב', unit_qty: 1, unit_measure: 'ליטר', manufacturer: 'תנובה', price: 6.9 }],
+      data: [{ barcode: '1', name: 'חלב', unit_qty: 1, unit_measure: 'ליטר', manufacturer: 'תנובה', price: 6.9, chain_code: 'shufersal', chain_display_name: 'שופרסל' }],
       error: null,
     });
     const { result } = renderHook(() => useProductSearch('חלב'));
