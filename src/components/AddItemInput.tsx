@@ -1,6 +1,8 @@
 import { Plus, Star } from 'lucide-react';
 import { useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useProductSearch } from '../hooks/useProductSearch';
+import { useChainFilter } from '../hooks/useChainFilter';
+import { ChainFilter } from './ChainFilter';
 import { CHAIN_BADGE_COLORS, type SearchProductResult } from '../lib/supabase';
 
 interface Props {
@@ -29,7 +31,8 @@ export function AddItemInput({ onAdd }: Props) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(0);
-  const { results } = useProductSearch(name);
+  const { included } = useChainFilter();
+  const { results } = useProductSearch(name, included);
 
   async function add(value: string, barcode: string | undefined, suggestion: SearchProductResult | null = null) {
     if (!value) return;
@@ -71,20 +74,23 @@ export function AddItemInput({ onAdd }: Props) {
 
   return (
     <form onSubmit={submit} className="relative">
-      <div className="flex items-center gap-2 p-2 border-b border-border bg-surface">
-        <button type="submit" disabled={busy || !name.trim()} className="btn-ghost p-2" aria-label="הוסף פריט">
-          <Plus size={18} />
-        </button>
-        <input
-          value={name}
-          onChange={e => { setName(e.target.value); setOpen(true); setHighlighted(0); }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-          onKeyDown={onKey}
-          placeholder="הוסף פריט..."
-          className="input flex-1"
-          aria-autocomplete="list"
-        />
+      <div className="flex flex-col gap-1 p-2 border-b border-border bg-surface">
+        <div className="flex items-center gap-2">
+          <button type="submit" disabled={busy || !name.trim()} className="btn-ghost p-2" aria-label="הוסף פריט">
+            <Plus size={18} />
+          </button>
+          <input
+            value={name}
+            onChange={e => { setName(e.target.value); setOpen(true); setHighlighted(0); }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+            onKeyDown={onKey}
+            placeholder="הוסף פריט..."
+            className="input flex-1"
+            aria-autocomplete="list"
+          />
+        </div>
+        <ChainFilter className="px-1" />
       </div>
       {open && results.length > 0 && (
         <ul

@@ -1,12 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { db, type SearchProductResult } from '../lib/supabase';
 
 const DEBOUNCE_MS = 200;
 const MIN_LEN = 2;
 
-export function useProductSearch(query: string, chainCode = 'shufersal', limit = 8) {
+// includedChains:
+//   undefined → server default (all chains)
+//   string[]  → only those chains
+// We join the array into a stable key for the effect deps; passing the
+// array directly would re-run the search on every parent render.
+export function useProductSearch(query: string, includedChains?: readonly string[], limit = 16) {
   const trimmed = query.trim();
   const tooShort = trimmed.length < MIN_LEN;
+  const chainsKey = includedChains ? [...includedChains].sort().join(',') : '';
+  const chainsArg = useMemo(
+    () => (includedChains && includedChains.length > 0 ? [...includedChains] : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chainsKey],
+  );
+
   const [fetched, setFetched] = useState<SearchProductResult[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -14,12 +26,12 @@ export function useProductSearch(query: string, chainCode = 'shufersal', limit =
     setLoading(true);
     const { data, error } = await db.rpc('search_products', {
       p_query: trimmed,
-      p_chain_code: chainCode,
+      p_chain_codes: chainsArg,
       p_limit: limit,
     });
     setFetched(error ? [] : (data ?? []) as SearchProductResult[]);
     setLoading(false);
-  }, [trimmed, chainCode, limit]);
+  }, [trimmed, chainsArg, limit]);
 
   useEffect(() => {
     if (tooShort) return;
@@ -30,9 +42,13 @@ export function useProductSearch(query: string, chainCode = 'shufersal', limit =
     return () => { cancelled = true; window.clearTimeout(t); };
   }, [tooShort, runSearch]);
 
-  // Derive what we expose so the short-query case never needs a setState reset.
+  // When the user disables all chains we want to show "no results" rather
+  // than the unfiltered default — easier to reason about than treating
+  // empty array as "everything".
+  const allDisabled = includedChains?.length === 0;
+
   return {
-    results: tooShort ? [] : fetched,
-    loading: tooShort ? false : loading,
+    results: tooShort || allDisabled ? [] : fetched,
+    loading: tooShort || allDisabled ? false : loading,
   };
 }

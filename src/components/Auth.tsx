@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
-import { signInWithGoogle } from '../lib/googleAuth';
+import { signInWithGoogle, hardResetAuth } from '../lib/googleAuth';
 
 export function Auth() {
   const [loading, setLoading] = useState(false);
@@ -32,6 +32,11 @@ export function Auth() {
             </svg>
           )}
           {loading ? 'מתחבר...' : 'כניסה עם Google'}
+        </button>
+        <button type="button"
+                className="btn-ghost w-full mt-3 text-xs text-muted hover:text-red-400"
+                onClick={() => { hardResetAuth(); window.location.reload(); }}>
+          הכניסה נכנסת ללולאה? אפס מצב התחברות
         </button>
         {import.meta.env.DEV && (
           <details className="mt-6 text-xs text-muted">

@@ -74,6 +74,7 @@ export interface SearchProductResult extends Product {
 // rows in shopping.chains; a missing entry falls back to neutral gray.
 export const CHAIN_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
   shufersal: { bg: '#B91C1C', fg: '#FFFFFF' },
+  rami_levy: { bg: '#1E3A8A', fg: '#FFFFFF' },
 };
 
 export interface PurchaseEvent {

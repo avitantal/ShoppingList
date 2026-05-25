@@ -24,3 +24,19 @@ export async function signOut() {
   try { localStorage.removeItem('activeListId'); } catch { /* ignore */ }
   await supabase.auth.signOut();
 }
+
+// Nukes every supabase-js storage artifact in localStorage. Use when the
+// sign-in flow is stuck in a loop because of stale PKCE state — typically
+// from an aborted previous OAuth attempt or a project-ref change. Does
+// NOT call supabase.auth.signOut() because that itself may hang on
+// corrupted state; this is a deliberate offline-only wipe.
+export function hardResetAuth() {
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('sb-') || k === 'activeListId')) keys.push(k);
+    }
+    keys.forEach(k => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+}

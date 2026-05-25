@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useAuth } from './hooks/useAuth';
 import { Auth } from './components/Auth';
 import { AppShell } from './components/AppShell';
-import { signOut } from './lib/googleAuth';
+import { hardResetAuth } from './lib/googleAuth';
 
 export default function App() {
   const { session, loading } = useAuth();
@@ -12,11 +12,13 @@ export default function App() {
 }
 
 function LoadingScreen() {
-  // If auth takes longer than this, surface a recovery panel so the user
-  // isn't stuck staring at the spinner with no way out.
+  // Surface a recovery panel only after the longest legitimate auth path
+  // (PKCE callback over slow mobile data ≈ several seconds). useAuth's
+  // own giveup timer is 15s; show recovery shortly after that so we don't
+  // tempt users to hit Refresh in the middle of a working sign-in.
   const [stuck, setStuck] = useState(false);
   useEffect(() => {
-    const t = window.setTimeout(() => setStuck(true), 4000);
+    const t = window.setTimeout(() => setStuck(true), 18000);
     return () => window.clearTimeout(t);
   }, []);
 
@@ -33,8 +35,8 @@ function LoadingScreen() {
               רענן
             </button>
             <button className="btn-ghost text-sm text-red-400"
-                    onClick={() => { void signOut().finally(() => window.location.reload()); }}>
-              התנתק
+                    onClick={() => { hardResetAuth(); window.location.reload(); }}>
+              אפס מצב התחברות
             </button>
           </div>
         </div>
