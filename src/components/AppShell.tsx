@@ -45,7 +45,7 @@ export function AppShell() {
   const isOwner = !!owned.find(l => l.id === activeId);
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex overflow-x-hidden">
       {drawerOpen && (
         <div className="fixed inset-0 z-40 flex">
           <ListSidebar activeListId={activeId} onSelect={selectList}
@@ -54,13 +54,13 @@ export function AppShell() {
           <div className="flex-1 bg-black/40" onClick={() => setDrawerOpen(false)} />
         </div>
       )}
-      <main className="flex-1 flex flex-col">
-        <header className="flex items-center justify-between p-3 border-b border-border bg-surface relative">
-          <button className="btn-ghost p-2" onClick={() => setDrawerOpen(true)} aria-label="פתח תפריט">
+      <main className="flex-1 min-w-0 flex flex-col">
+        <header className="flex items-center justify-between gap-2 p-3 border-b border-border bg-surface relative">
+          <button className="btn-ghost p-2 shrink-0" onClick={() => setDrawerOpen(true)} aria-label="פתח תפריט">
             <Menu size={20} />
           </button>
-          <h1 className="font-semibold truncate">{active?.name ?? '—'}</h1>
-          <button className="btn-ghost p-2" disabled={!isOwner} onClick={() => setShareOpen(true)} aria-label="שתף">
+          <h1 className="flex-1 min-w-0 text-center font-semibold truncate">{active?.name ?? '—'}</h1>
+          <button className="btn-ghost p-2 shrink-0" disabled={!isOwner} onClick={() => setShareOpen(true)} aria-label="שתף">
             <Share2 size={20} />
           </button>
           <span className="absolute bottom-0.5 left-2 text-[10px] text-muted/60 font-mono pointer-events-none select-none">
