@@ -33,11 +33,20 @@ describe('CartTotalFooter', () => {
     expect(screen.getByText(/₪24\.30/)).toBeInTheDocument();
   });
 
-  it('shows the ⓘ marker when some items lack a price', () => {
+  it('shows the ⓘ marker with singular Hebrew when exactly one item lacks a price', () => {
     render(<CartTotalFooter items={[
       item({ id: '1', estimated_price: 6.9, qty: 1 }),
       item({ id: '2', estimated_price: null, qty: 1 }),
     ]} />);
-    expect(screen.getByLabelText(/פריטים ללא מחיר/)).toBeInTheDocument();
+    expect(screen.getByLabelText('פריט אחד ללא מחיר')).toBeInTheDocument();
+  });
+
+  it('shows the ⓘ marker with plural Hebrew when 2+ items lack a price', () => {
+    render(<CartTotalFooter items={[
+      item({ id: '1', estimated_price: 6.9, qty: 1 }),
+      item({ id: '2', estimated_price: null, qty: 1 }),
+      item({ id: '3', estimated_price: null, qty: 1 }),
+    ]} />);
+    expect(screen.getByLabelText('2 פריטים ללא מחיר')).toBeInTheDocument();
   });
 });

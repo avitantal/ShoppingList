@@ -48,6 +48,25 @@ describe('AddItemInput combobox', () => {
     await waitFor(() => expect(screen.getAllByText('שופרסל')).toHaveLength(2));
   });
 
+  it('renders package size with the numeric prefix of unit_measure stripped', async () => {
+    // Shufersal publishes unit_measure as "1ליטר" / "100 גרם" — naively
+    // concatenating unit_qty in front produces "2 1ליטר" which is nonsense.
+    rpcMock.mockResolvedValueOnce({
+      data: [
+        { barcode: 'X', name: 'חלב 2 ליטר', unit_qty: 2, unit_measure: '1ליטר', manufacturer: null, price: 14.7, chain_code: 'shufersal', chain_display_name: 'שופרסל' },
+        { barcode: 'Y', name: 'סוכר 250 גרם', unit_qty: 250, unit_measure: '100 גרם', manufacturer: null, price: 5.9, chain_code: 'shufersal', chain_display_name: 'שופרסל' },
+      ],
+      error: null,
+    });
+    render(<AddItemInput onAdd={vi.fn()} />);
+    await userEvent.type(screen.getByPlaceholderText(/הוסף פריט/), 'חלב');
+    await waitFor(() => expect(screen.getByText(/חלב 2 ליטר/)).toBeInTheDocument());
+    // Should read "2 ליטר", NOT "2 1ליטר".
+    expect(screen.getByText(/2 ליטר · ₪14\.70/)).toBeInTheDocument();
+    expect(screen.queryByText(/2 1ליטר/)).not.toBeInTheDocument();
+    expect(screen.getByText(/250 גרם · ₪5\.90/)).toBeInTheDocument();
+  });
+
   it('Esc closes the dropdown', async () => {
     render(<AddItemInput onAdd={vi.fn()} />);
     await userEvent.type(screen.getByPlaceholderText(/הוסף פריט/), 'חלב');

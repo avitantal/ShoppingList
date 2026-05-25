@@ -9,6 +9,17 @@ interface Props {
 
 const BADGE_FALLBACK = { bg: '#6B7280', fg: '#FFFFFF' };
 
+// Shufersal publishes unit_measure as a comparison-unit string ("100 גרם",
+// "1ליטר") rather than the bare unit. Concatenating unit_qty in front of it
+// produces nonsense like "2 1ליטר". Strip any leading digit prefix so the
+// label reads naturally: "2 ליטר", "250 גרם".
+function formatPackageSize(qty: number | null, measure: string | null): string {
+  if (qty == null || !measure) return '';
+  const unitWord = measure.replace(/^\s*\d+(\.\d+)?\s*/, '').trim();
+  if (!unitWord) return '';
+  return `${qty} ${unitWord} · `;
+}
+
 export function AddItemInput({ onAdd }: Props) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -86,7 +97,7 @@ export function AddItemInput({ onAdd }: Props) {
                   </span>
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {r.unit_qty != null && r.unit_measure ? `${r.unit_qty} ${r.unit_measure} · ` : ''}
+                  {formatPackageSize(r.unit_qty, r.unit_measure)}
                   ₪{r.price.toFixed(2)}
                   {r.manufacturer ? ` · ${r.manufacturer}` : ''}
                 </div>

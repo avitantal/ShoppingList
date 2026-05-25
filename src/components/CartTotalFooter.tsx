@@ -12,12 +12,14 @@ export function CartTotalFooter({ items }: Props) {
 
   const total = priced.reduce((acc, i) => acc + (i.estimated_price ?? 0) * i.qty, 0);
   const missing = eligible.length - priced.length;
+  // Hebrew: singular for count=1, plural otherwise. "1 פריטים" is ungrammatical.
+  const missingLabel = missing === 1 ? 'פריט אחד ללא מחיר' : `${missing} פריטים ללא מחיר`;
 
   return (
     <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-surface border-t border-border text-sm">
       <span className="font-medium">סה״כ משוער: ₪{total.toFixed(2)}</span>
       {missing > 0 && (
-        <span aria-label={`${missing} פריטים ללא מחיר`} title={`${missing} פריטים ללא מחיר`} className="text-muted-foreground">
+        <span aria-label={missingLabel} title={missingLabel} className="text-muted-foreground">
           <Info size={14} />
         </span>
       )}
