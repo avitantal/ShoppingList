@@ -59,7 +59,7 @@ export function useListItems(listId: string | null) {
     if (error) { await refresh(); throw error; }
   }
 
-  async function updateItem(itemId: string, patch: Partial<Pick<ListItem, 'name' | 'qty' | 'unit' | 'notes' | 'estimated_price' | 'sort_order'>>) {
+  async function updateItem(itemId: string, patch: Partial<Pick<ListItem, 'name' | 'qty' | 'unit' | 'notes' | 'estimated_price' | 'sort_order' | 'barcode'>>) {
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...patch } : i));
     const { error } = await db.from('list_items').update(patch).eq('id', itemId);
     if (error) { await refresh(); throw error; }

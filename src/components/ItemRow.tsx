@@ -14,9 +14,10 @@ interface Props {
   onToggle: (next: boolean) => void;
   onQtyChange: (next: number) => void;
   onDelete: () => void;
+  onOpenLink: () => void;
 }
 
-export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
+export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -96,7 +97,12 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete }: Props) {
                onChange={e => onToggle(e.target.checked)}
                onClick={e => e.stopPropagation()}
                className="w-5 h-5 accent-indigo-500 shrink-0" />
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 cursor-pointer"
+             onClick={e => {
+               if (revealed || justSwiped.current) return;
+               e.stopPropagation();
+               onOpenLink();
+             }}>
           <div className={cn('text-sm font-medium truncate', item.is_in_cart && 'line-through text-muted')}>{item.name}</div>
           {(item.unit || item.estimated_price != null || !item.barcode) && (
             <div className="text-xs text-muted truncate">

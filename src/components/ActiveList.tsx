@@ -6,13 +6,16 @@ import { ItemRow } from './ItemRow';
 import { AddItemInput } from './AddItemInput';
 import { CartTotalFooter } from './CartTotalFooter';
 import { CheckoutDialog } from './CheckoutDialog';
+import { LinkItemDialog } from './LinkItemDialog';
 
 interface Props { listId: string; }
 
 export function ActiveList({ listId }: Props) {
   const { items, addItem, setInCart, updateItem, deleteItem, refresh } = useListItems(listId);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
   const cartCount = useMemo(() => items.filter(i => i.is_in_cart).length, [items]);
+  const linkingItem = linkingItemId ? items.find(i => i.id === linkingItemId) ?? null : null;
 
   return (
     <div className="flex flex-col h-full">
@@ -48,7 +51,8 @@ export function ActiveList({ listId }: Props) {
               <ItemRow key={it.id} item={it}
                        onToggle={(next) => setInCart(it.id, next)}
                        onQtyChange={(next) => updateItem(it.id, { qty: next })}
-                       onDelete={() => deleteItem(it.id)} />
+                       onDelete={() => deleteItem(it.id)}
+                       onOpenLink={() => setLinkingItemId(it.id)} />
             ))}
         <CartTotalFooter items={items} />
       </div>
@@ -65,6 +69,19 @@ export function ActiveList({ listId }: Props) {
                         cartItems={items.filter(i => i.is_in_cart)}
                         onClose={() => setCheckoutOpen(false)}
                         onDone={() => { setCheckoutOpen(false); void refresh(); }} />
+      )}
+      {linkingItem && (
+        <LinkItemDialog initialQuery={linkingItem.name}
+                        onClose={() => setLinkingItemId(null)}
+                        onPick={(p) => {
+                          void updateItem(linkingItem.id, {
+                            name: p.name,
+                            barcode: p.barcode,
+                            estimated_price: p.price,
+                          });
+                          setLinkingItemId(null);
+                          toast.success(`קושר ל-${p.name}`);
+                        }} />
       )}
     </div>
   );
