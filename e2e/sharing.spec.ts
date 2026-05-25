@@ -51,7 +51,9 @@ test.describe.serial('sharing + realtime', () => {
     await pageB.getByRole('button', { name: /Sign in \(e2e\)/ }).click();
     await pageB.getByRole('button', { name: 'פתח תפריט' }).click();
     await expect(pageB.getByText('ששותפו איתי')).toBeVisible();
-    await pageB.getByText('הרשימה שלי', { exact: false }).nth(1).click(); // shared one
+    // B's own list reads "הרשימה שלי (ברירת מחדל)"; the shared one is just
+    // "הרשימה שלי". exact:true disambiguates without relying on nth().
+    await pageB.getByRole('button', { name: 'הרשימה שלי', exact: true }).click();
 
     await expect(pageB.getByText('חלב 3%')).toBeVisible();
 
