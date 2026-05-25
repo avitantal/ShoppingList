@@ -1,2 +1,2 @@
-il-supermarket-scarper>=0.5
+il-supermarket-scraper>=1.0
 supabase>=2.7

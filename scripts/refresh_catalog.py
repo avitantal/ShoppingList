@@ -24,14 +24,21 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Iterator
 
-from il_supermarket_scarper import ScarpingTask  # type: ignore
+# Note the typo: PyPI package is "il-supermarket-scraper" (correct), but
+# the importable Python module kept the original "scarper" misspelling
+# from when the library was first released. Both names are intentional.
+from il_supermarket_scarper import ScarpingTask, ScraperFactory  # type: ignore
 from supabase import create_client  # type: ignore
 
-# (db chain code, scraper enum name used by il_supermarket_scarper)
-CHAINS: list[tuple[str, str]] = [
-    ("shufersal", "SHUFERSAL"),
-    ("rami_levy", "RAMI_LEVY"),
-]
+# (db chain code, scraper enum name used by il_supermarket_scarper).
+# Resolving via ScraperFactory.X.name fails loudly if a future lib release
+# renames a scraper (AttributeError at import time, not a quiet 0 results
+# from a bad string).
+def _scraper_names() -> list[tuple[str, str]]:
+    return [
+        ("shufersal", ScraperFactory.SHUFERSAL.name),
+        ("rami_levy", ScraperFactory.RAMI_LEVY.name),
+    ]
 
 BATCH = 500
 
@@ -106,12 +113,17 @@ def read_gz_or_xml(path: str) -> bytes:
 def ingest_one(chain_code: str, scraper_name: str, sb) -> tuple[int, int]:
     print(f"--- {chain_code} (scraper={scraper_name}) ---", flush=True)
     with tempfile.TemporaryDirectory() as out_dir:
+        # il-supermarket-scraper 1.x API: storage_path lives inside
+        # output_configuration; files_types still controls which file kinds
+        # to fetch. .start(limit=1) caps downloads to a single PriceFull
+        # file — one per chain is enough since the product list is
+        # identical across stores and we only persist one price per
+        # (barcode, chain).
         ScarpingTask(
-            dump_folder=out_dir,
-            only_latest=True,
-            files_types=["PRICE_FULL_FILE"],
             enabled_scrapers=[scraper_name],
-        ).start()
+            files_types=["PRICE_FULL_FILE"],
+            output_configuration={"output_mode": "disk", "storage_path": out_dir},
+        ).start(limit=1)
 
         paths = sorted(
             glob.glob(os.path.join(out_dir, "**", "PriceFull*"), recursive=True)
@@ -169,7 +181,7 @@ def main() -> int:
     sb = create_client(url, key)
     totals: list[tuple[str, int, int]] = []
     failed: list[str] = []
-    for chain_code, scraper_name in CHAINS:
+    for chain_code, scraper_name in _scraper_names():
         try:
             p, pr = ingest_one(chain_code, scraper_name, sb)
             totals.append((chain_code, p, pr))
