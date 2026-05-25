@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { useListItems } from '../hooks/useListItems';
 import { ItemRow } from './ItemRow';
 import { AddItemInput } from './AddItemInput';
+import { CartTotalFooter } from './CartTotalFooter';
 import { CheckoutDialog } from './CheckoutDialog';
 
 interface Props { listId: string; }
@@ -32,6 +33,7 @@ export function ActiveList({ listId }: Props) {
                        onQtyChange={(next) => updateItem(it.id, { qty: next })}
                        onDelete={() => deleteItem(it.id)} />
             ))}
+        <CartTotalFooter items={items} />
       </div>
       {cartCount > 0 && (
         <div className="p-3 bg-surface border-t border-border sticky bottom-0">
