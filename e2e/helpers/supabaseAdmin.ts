@@ -4,7 +4,10 @@ import 'dotenv/config';
 const url = process.env.VITE_SUPABASE_URL!;
 const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-export const admin = createClient(url, serviceRole, { auth: { persistSession: false } });
+export const admin = createClient(url, serviceRole, {
+  auth: { persistSession: false },
+  db: { schema: 'shopping' },
+});
 
 export async function ensureUser(email: string, password: string): Promise<string> {
   const { data: existing } = await admin.auth.admin.listUsers();
