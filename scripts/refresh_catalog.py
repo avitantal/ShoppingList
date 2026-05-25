@@ -54,12 +54,19 @@ class Item:
 
 
 def _txt(item: ET.Element, *tags: str) -> str:
-    """First non-empty value among the candidate tags. Spec uses both
-    PascalCase and lower_case_with_underscores across chains."""
+    """First non-empty value among the candidate tags, case-insensitive.
+
+    Different chains use different casings and even different spellings:
+    Shufersal publishes <ManufactureName> (missing 'r'), the spec calls
+    it <ManufacturerName>, Super-Pharm uses <Line> instead of <Item>,
+    and lower-cased variants show up too. We normalise once per item
+    instead of trying every permutation per field.
+    """
+    lower_map = {c.tag.lower(): c for c in item}
     for t in tags:
-        v = item.findtext(t)
-        if v is not None:
-            v = v.strip()
+        c = lower_map.get(t.lower())
+        if c is not None and c.text is not None:
+            v = c.text.strip()
             if v:
                 return v
     return ""
@@ -75,29 +82,42 @@ def _float(s: str) -> float | None:
 
 
 def parse_pricefull(xml_bytes: bytes) -> Iterator[Item]:
-    # Some files wrap in <Root>, others in <Items>; .iter handles both.
+    # Root may be <Root>, <Items>, <root>, etc. .iter() walks every element
+    # so we don't depend on the wrapper.
     root = ET.fromstring(xml_bytes)
     for el in root.iter():
-        # Item elements may be <Item> or <Product>; check by presence of an
-        # ItemCode/PriceUpdateDate child.
-        if el.tag.lower() not in ("item", "product"):
+        # Item element is <Item> on most chains, <Product> on a few,
+        # <Line> on Super-Pharm. Check by tag, then by presence of a price.
+        if el.tag.lower() not in ("item", "product", "line"):
             continue
-        barcode = _txt(el, "ItemCode", "itemcode")
+        barcode = _txt(el, "ItemCode")
         if not barcode:
             continue
-        name = _txt(el, "ItemName", "itemname", "ManufacturerItemDescription")
+        name = _txt(el, "ItemName", "ManufacturerItemDescription", "ManufactureItemDescription")
         if not name:
             continue
-        price_str = _txt(el, "ItemPrice", "itemprice")
-        price = _float(price_str)
+        price = _float(_txt(el, "ItemPrice"))
         if price is None or price < 0:
             continue
+        # Shufersal swaps the spec's UnitQty/Quantity meanings: UnitQty
+        # holds the unit string ('גרם'), Quantity holds the number.
+        # Try the numeric variants in order; the first that parses wins.
+        unit_qty = (
+            _float(_txt(el, "Quantity"))
+            or _float(_txt(el, "UnitQty"))
+            or _float(_txt(el, "QtyInPackage"))
+        )
+        # Manufacturer name has two spellings in the wild:
+        # ManufacturerName (spec) and ManufactureName (Shufersal typo).
+        manufacturer = (
+            _txt(el, "ManufacturerName", "ManufactureName") or None
+        )
         yield Item(
             barcode=barcode,
             name=name,
-            unit_qty=_float(_txt(el, "UnitQty", "unitqty", "Quantity")),
-            unit_measure=_txt(el, "UnitOfMeasure", "unitofmeasure") or None,
-            manufacturer=_txt(el, "ManufacturerName", "manufacturername") or None,
+            unit_qty=unit_qty,
+            unit_measure=_txt(el, "UnitOfMeasure") or None,
+            manufacturer=manufacturer,
             price=price,
         )
 
