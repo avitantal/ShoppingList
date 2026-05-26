@@ -8,6 +8,8 @@ export function makeMockClient(tables: Record<string, Row[]>, rpc: Record<string
     const chain: Record<string, unknown> = {
       data: rows, error: null,
       select: vi.fn(() => chain),
+      update: vi.fn(() => chain),
+      delete: vi.fn(() => chain),
       eq:     vi.fn(() => chain),
       order:  vi.fn(() => chain),
       is:     vi.fn(() => chain),

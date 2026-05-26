@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase, db, SHOPPING_SCHEMA, type ListItem } from '../lib/supabase';
 
+function sortListItems(items: ListItem[]): ListItem[] {
+  return [...items].sort((a, b) =>
+    a.sort_order - b.sort_order ||
+    Date.parse(a.created_at) - Date.parse(b.created_at) ||
+    a.id.localeCompare(b.id)
+  );
+}
+
 export function useListItems(listId: string | null) {
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -12,8 +20,10 @@ export function useListItems(listId: string | null) {
       .from('list_items')
       .select('*')
       .eq('list_id', listId)
-      .order('sort_order', { ascending: true });
-    setItems((data ?? []) as ListItem[]);
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true });
+    setItems(sortListItems((data ?? []) as ListItem[]));
     setLoading(false);
   }, [listId]);
 
@@ -60,7 +70,7 @@ export function useListItems(listId: string | null) {
   }
 
   async function updateItem(itemId: string, patch: Partial<Pick<ListItem, 'name' | 'qty' | 'unit' | 'notes' | 'estimated_price' | 'sort_order' | 'barcode'>>) {
-    setItems(prev => prev.map(i => i.id === itemId ? { ...i, ...patch } : i));
+    setItems(prev => sortListItems(prev.map(i => i.id === itemId ? { ...i, ...patch } : i)));
     const { error } = await db.from('list_items').update(patch).eq('id', itemId);
     if (error) { await refresh(); throw error; }
   }
