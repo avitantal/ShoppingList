@@ -34,14 +34,17 @@ export function ActiveList({ listId }: Props) {
       return;
     }
 
-    const product = getProductLinkDefault(item.name);
-    if (!product) {
-      setLinkingItemId(item.id);
-      return;
-    }
-
-    void applyProduct(item, product)
-      .then(() => {
+    void (async () => {
+      const product = await getProductLinkDefault(item.name);
+      if (!product) {
+        setLinkingItemId(item.id);
+        return;
+      }
+      await applyProduct(item, product);
+      return product;
+    })()
+      .then((product) => {
+        if (!product) return;
         toast.success(`קושר אוטומטית ל-${product.name}`, {
           action: {
             label: 'שנה',
@@ -128,10 +131,18 @@ export function ActiveList({ listId }: Props) {
         <LinkItemDialog initialQuery={linkingItem.name}
                         onClose={() => setLinkingItemId(null)}
                         onPick={(p) => {
-                          saveProductLinkDefault(linkingItem.name, p);
-                          void applyProduct(linkingItem, p);
+                          const originalName = linkingItem.name;
+                          void (async () => {
+                            await applyProduct(linkingItem, p);
+                            try {
+                              await saveProductLinkDefault(originalName, p);
+                            } catch {
+                              toast.error('הפריט קושר, אבל ברירת המחדל לא נשמרה');
+                              return;
+                            }
+                            toast.success(`קושר ל-${p.name}`);
+                          })();
                           setLinkingItemId(null);
-                          toast.success(`קושר ל-${p.name}`);
                         }} />
       )}
     </div>
