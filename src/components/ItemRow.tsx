@@ -1,8 +1,8 @@
-import { Minus, Plus, Trash2 } from 'lucide-react';
+import { Link2, Minus, Plus, Trash2 } from 'lucide-react';
 import { useSwipeable } from 'react-swipeable';
 import { useEffect, useRef, useState } from 'react';
 import type { ListItem } from '../lib/supabase';
-import { formatILS } from '../lib/format';
+import { formatCompactILS } from '../lib/format';
 import { cn } from '../lib/utils';
 
 const REVEAL_WIDTH = 80;
@@ -73,6 +73,9 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
     setDragX(0);
   }
 
+  const needsLink = !item.barcode;
+  const hasPrice = item.estimated_price != null;
+
   return (
     <div className="relative overflow-hidden">
       <button onClick={onDelete}
@@ -83,7 +86,8 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
         מחק
       </button>
       <div className={cn(
-            'flex items-center gap-2 py-3 pe-3 border-b border-border bg-bg',
+            'flex items-center gap-2 py-2.5 pe-3 border-b border-border bg-bg',
+            item.is_in_cart && 'bg-emerald-500/10 border-emerald-400/20',
             !dragging && 'transition-[transform,padding] duration-200 ease-out'
           )}
            style={{
@@ -103,27 +107,39 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
                e.stopPropagation();
                onOpenLink();
              }}>
-          <div className={cn('text-sm font-medium truncate', item.is_in_cart && 'line-through text-muted')}>{item.name}</div>
-          {(item.unit || item.estimated_price != null || !item.barcode) && (
+          <div className={cn('flex items-center gap-1.5 text-sm font-medium min-w-0', item.is_in_cart && 'line-through text-emerald-200')}>
+            {needsLink && (
+              <span className="w-5 h-5 rounded-md bg-amber-400/10 text-amber-300 inline-flex items-center justify-center shrink-0"
+                    title="קשר למוצר">
+                <Link2 size={12} />
+              </span>
+            )}
+            <span className="truncate">{item.name}</span>
+          </div>
+          {(item.unit || needsLink) && (
             <div className="text-xs text-muted truncate">
-              {item.unit ?? ''}{item.unit && item.estimated_price != null ? ' · ' : ''}
-              {item.estimated_price != null
-                ? formatILS(item.estimated_price)
-                : !item.barcode ? <span className="text-muted/70">אין מחיר</span> : null}
+              {item.unit ?? ''}
+              {item.unit && needsLink ? ' · ' : ''}
+              {needsLink ? <span className="text-muted/80">אין מחיר · לחץ לקישור מוצר</span> : null}
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-          <button onClick={dec}
-                  disabled={Number(item.qty) <= 1}
-                  className="btn-ghost p-1.5 disabled:opacity-30"
-                  aria-label="הפחת כמות">
-            <Minus size={14} />
-          </button>
-          <span className="min-w-6 text-center text-sm tabular-nums">{item.qty}</span>
-          <button onClick={inc} className="btn-ghost p-1.5" aria-label="הוסף כמות">
-            <Plus size={14} />
-          </button>
+        <div className="shrink-0 flex flex-col items-end gap-1" onClick={e => e.stopPropagation()}>
+          <div className="min-w-16 text-left text-sm font-semibold tabular-nums text-text [direction:ltr]">
+            {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={dec}
+                    disabled={Number(item.qty) <= 1}
+                    className="btn-ghost w-7 h-7 p-0 disabled:opacity-30"
+                    aria-label="הפחת כמות">
+              <Minus size={14} />
+            </button>
+            <span className="min-w-6 text-center text-sm tabular-nums">{item.qty}</span>
+            <button onClick={inc} className="btn-ghost w-7 h-7 p-0" aria-label="הוסף כמות">
+              <Plus size={14} />
+            </button>
+          </div>
         </div>
       </div>
     </div>

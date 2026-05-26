@@ -75,9 +75,11 @@ describe('AddItemInput combobox', () => {
     await userEvent.type(screen.getByPlaceholderText(/הוסף פריט/), 'חלב');
     await waitFor(() => expect(screen.getByText(/חלב 2 ליטר/)).toBeInTheDocument());
     // Should read "2 ליטר", NOT "2 1ליטר".
-    expect(screen.getByText(/2 ליטר · ₪14\.70/)).toBeInTheDocument();
+    expect(screen.getByText('2 ליטר')).toBeInTheDocument();
+    expect(screen.getByText('₪14.70')).toBeInTheDocument();
     expect(screen.queryByText(/2 1ליטר/)).not.toBeInTheDocument();
-    expect(screen.getByText(/250 גרם · ₪5\.90/)).toBeInTheDocument();
+    expect(screen.getByText('250 גרם')).toBeInTheDocument();
+    expect(screen.getByText('₪5.90')).toBeInTheDocument();
   });
 
   it('Esc closes the dropdown', async () => {

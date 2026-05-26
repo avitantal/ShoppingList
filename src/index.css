@@ -14,7 +14,7 @@ body {
 }
 
 @layer components {
-  .card { @apply bg-surface border border-border rounded-xl; }
+  .card { @apply bg-surface border border-border rounded-lg; }
   .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors; }
   .btn-primary { @apply btn bg-accent hover:bg-indigo-500 text-white; }
   .btn-ghost { @apply btn hover:bg-surface text-muted hover:text-text; }

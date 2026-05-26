@@ -5,6 +5,11 @@ export function formatILS(value: number | null | undefined): string {
   return ils.format(value);
 }
 
+export function formatCompactILS(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  return `₪${value.toFixed(2)}`;
+}
+
 export function normalizeStoreName(input: string): string {
   return input.trim().replace(/\s+/g, ' ');
 }

@@ -1,9 +1,14 @@
-import { Plus, Star } from 'lucide-react';
-import { useState, type FormEvent, type KeyboardEvent } from 'react';
+import { Plus } from 'lucide-react';
+import { useMemo, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useChainFilter } from '../hooks/useChainFilter';
 import { ChainFilter } from './ChainFilter';
-import { CHAIN_BADGE_COLORS, type SearchProductResult } from '../lib/supabase';
+import type { SearchProductResult } from '../lib/supabase';
+import {
+  getCheapestProductKeys,
+  ProductSuggestionRow,
+  productSuggestionKey,
+} from './ProductSuggestionRow';
 
 interface Props {
   onAdd: (
@@ -13,19 +18,6 @@ interface Props {
   ) => Promise<void> | void;
 }
 
-const BADGE_FALLBACK = { bg: '#6B7280', fg: '#FFFFFF' };
-
-// Shufersal publishes unit_measure as a comparison-unit string ("100 גרם",
-// "1ליטר") rather than the bare unit. Concatenating unit_qty in front of it
-// produces nonsense like "2 1ליטר". Strip any leading digit prefix so the
-// label reads naturally: "2 ליטר", "250 גרם".
-function formatPackageSize(qty: number | null, measure: string | null): string {
-  if (qty == null || !measure) return '';
-  const unitWord = measure.replace(/^\s*\d+(\.\d+)?\s*/, '').trim();
-  if (!unitWord) return '';
-  return `${qty} ${unitWord} · `;
-}
-
 export function AddItemInput({ onAdd }: Props) {
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -33,6 +25,7 @@ export function AddItemInput({ onAdd }: Props) {
   const [highlighted, setHighlighted] = useState(0);
   const { included } = useChainFilter();
   const { results } = useProductSearch(name, included);
+  const cheapestKeys = useMemo(() => getCheapestProductKeys(results), [results]);
 
   async function add(value: string, barcode: string | undefined, suggestion: SearchProductResult | null = null) {
     if (!value) return;
@@ -97,43 +90,16 @@ export function AddItemInput({ onAdd }: Props) {
           className="absolute right-0 left-0 top-full z-20 bg-surface border border-border rounded-b-md shadow-md max-h-80 overflow-y-auto"
           role="listbox"
         >
-          {results.map((r, i) => {
-            const badge = CHAIN_BADGE_COLORS[r.chain_code] ?? BADGE_FALLBACK;
-            return (
-              <li
-                key={`${r.chain_code}:${r.barcode}`}
-                role="option"
-                aria-selected={i === highlighted}
-                onMouseEnter={() => setHighlighted(i)}
-                onMouseDown={(e) => { e.preventDefault(); void add(r.name, r.barcode, null); }}
-                className={`px-3 py-2 cursor-pointer text-sm ${i === highlighted ? 'bg-muted' : ''}`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="font-medium truncate flex items-center gap-1.5">
-                    {r.previously_bought && (
-                      <Star size={12} className="shrink-0 text-amber-400 fill-amber-400" aria-label="נקנה בעבר" />
-                    )}
-                    <span className="truncate">{r.name}</span>
-                  </div>
-                  <span
-                    className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: badge.bg, color: badge.fg }}
-                  >
-                    {r.chain_display_name}
-                  </span>
-                </div>
-                {r.manufacturer && (
-                  <div className="text-xs text-foreground/80 font-medium truncate mt-0.5">
-                    {r.manufacturer}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground">
-                  {formatPackageSize(r.unit_qty, r.unit_measure)}
-                  ₪{r.price.toFixed(2)}
-                </div>
-              </li>
-            );
-          })}
+          {results.map((r, i) => (
+            <ProductSuggestionRow
+              key={productSuggestionKey(r)}
+              product={r}
+              highlighted={i === highlighted}
+              cheapest={cheapestKeys.has(productSuggestionKey(r))}
+              onMouseEnter={() => setHighlighted(i)}
+              onMouseDown={(e) => { e.preventDefault(); void add(r.name, r.barcode, null); }}
+            />
+          ))}
         </ul>
       )}
     </form>

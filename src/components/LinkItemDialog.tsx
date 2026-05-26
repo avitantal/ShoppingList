@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Star, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useProductSearch } from '../hooks/useProductSearch';
 import { useChainFilter } from '../hooks/useChainFilter';
 import { ChainFilter } from './ChainFilter';
-import { CHAIN_BADGE_COLORS, type SearchProductResult } from '../lib/supabase';
+import type { SearchProductResult } from '../lib/supabase';
+import {
+  getCheapestProductKeys,
+  ProductSuggestionRow,
+  productSuggestionKey,
+} from './ProductSuggestionRow';
 
 interface Props {
   initialQuery: string;
@@ -11,19 +16,11 @@ interface Props {
   onClose: () => void;
 }
 
-const BADGE_FALLBACK = { bg: '#6B7280', fg: '#FFFFFF' };
-
-function formatPackageSize(qty: number | null, measure: string | null): string {
-  if (qty == null || !measure) return '';
-  const unitWord = measure.replace(/^\s*\d+(\.\d+)?\s*/, '').trim();
-  if (!unitWord) return '';
-  return `${qty} ${unitWord} · `;
-}
-
 export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
   const [query, setQuery] = useState(initialQuery);
   const { included } = useChainFilter();
   const { results, loading } = useProductSearch(query, included);
+  const cheapestKeys = getCheapestProductKeys(results);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
@@ -56,36 +53,14 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
             <p className="text-sm text-muted text-center py-6">לא נמצאו מוצרים תואמים</p>
           ) : (
             <ul role="listbox">
-              {results.map(r => {
-                const badge = CHAIN_BADGE_COLORS[r.chain_code] ?? BADGE_FALLBACK;
-                return (
-                  <li key={`${r.chain_code}:${r.barcode}`} role="option"
-                      onClick={() => onPick(r)}
-                      className="px-3 py-2 cursor-pointer text-sm hover:bg-bg rounded-md border-b border-border last:border-b-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-medium truncate flex items-center gap-1.5">
-                        {r.previously_bought && (
-                          <Star size={12} className="shrink-0 text-amber-400 fill-amber-400" aria-label="נקנה בעבר" />
-                        )}
-                        <span className="truncate">{r.name}</span>
-                      </div>
-                      <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: badge.bg, color: badge.fg }}>
-                        {r.chain_display_name}
-                      </span>
-                    </div>
-                    {r.manufacturer && (
-                      <div className="text-xs text-foreground/80 font-medium truncate mt-0.5">
-                        {r.manufacturer}
-                      </div>
-                    )}
-                    <div className="text-xs text-muted">
-                      {formatPackageSize(r.unit_qty, r.unit_measure)}
-                      ₪{r.price.toFixed(2)}
-                    </div>
-                  </li>
-                );
-              })}
+              {results.map(r => (
+                <ProductSuggestionRow
+                  key={productSuggestionKey(r)}
+                  product={r}
+                  cheapest={cheapestKeys.has(productSuggestionKey(r))}
+                  onClick={() => onPick(r)}
+                />
+              ))}
             </ul>
           )}
         </div>
