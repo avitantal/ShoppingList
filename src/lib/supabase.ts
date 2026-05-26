@@ -1,9 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
+export const AUTH_STORAGE_KEY = 'shoppinglist-auth-token';
+
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY,
-  { auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } },
+  {
+    auth: {
+      flowType: 'pkce',
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: AUTH_STORAGE_KEY,
+    },
+  },
 );
 
 // ShoppingList tables live in the "shopping" schema (shared Supabase project

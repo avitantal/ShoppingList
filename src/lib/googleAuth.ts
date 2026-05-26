@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+import { AUTH_STORAGE_KEY, supabase } from './supabase';
 
 function getRedirectTo(): string | undefined {
   if (typeof window === 'undefined') return undefined;
@@ -35,7 +35,7 @@ export function hardResetAuth() {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && (k.startsWith('sb-') || k === 'activeListId')) keys.push(k);
+      if (k && (k.startsWith('sb-') || k.startsWith(AUTH_STORAGE_KEY) || k === 'activeListId')) keys.push(k);
     }
     keys.forEach(k => localStorage.removeItem(k));
   } catch { /* ignore */ }
