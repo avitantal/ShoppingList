@@ -7,15 +7,69 @@ import { AddItemInput } from './AddItemInput';
 import { CartTotalFooter } from './CartTotalFooter';
 import { CheckoutDialog } from './CheckoutDialog';
 import { LinkItemDialog } from './LinkItemDialog';
+import { getProductLinkDefault, saveProductLinkDefault } from '../lib/productLinkDefaults';
+import type { ListItem, SearchProductResult } from '../lib/supabase';
 
 interface Props { listId: string; }
 
 export function ActiveList({ listId }: Props) {
-  const { items, addItem, setInCart, updateItem, deleteItem, refresh } = useListItems(listId);
+  const { items, addItem, setInCart, updateItem, deleteItem, restoreItem, refresh } = useListItems(listId);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
   const cartCount = useMemo(() => items.filter(i => i.is_in_cart).length, [items]);
   const linkingItem = linkingItemId ? items.find(i => i.id === linkingItemId) ?? null : null;
+
+  async function applyProduct(item: ListItem, product: Pick<SearchProductResult, 'name' | 'barcode' | 'price'> | { name: string; barcode: string; estimated_price: number }) {
+    const estimatedPrice = 'estimated_price' in product ? product.estimated_price : product.price;
+    await updateItem(item.id, {
+      name: product.name,
+      barcode: product.barcode,
+      estimated_price: estimatedPrice,
+    });
+  }
+
+  function openLink(item: ListItem) {
+    if (item.barcode) {
+      setLinkingItemId(item.id);
+      return;
+    }
+
+    const product = getProductLinkDefault(item.name);
+    if (!product) {
+      setLinkingItemId(item.id);
+      return;
+    }
+
+    void applyProduct(item, product)
+      .then(() => {
+        toast.success(`קושר אוטומטית ל-${product.name}`, {
+          action: {
+            label: 'שנה',
+            onClick: () => setLinkingItemId(item.id),
+          },
+        });
+      })
+      .catch(() => {
+        toast.error('לא הצלחתי לקשר אוטומטית');
+        setLinkingItemId(item.id);
+      });
+  }
+
+  function deleteWithUndo(item: ListItem) {
+    const deletion = deleteItem(item.id);
+    toast(`נמחק ${item.name}`, {
+      duration: 7000,
+      action: {
+        label: 'בטל',
+        onClick: () => {
+          void deletion
+            .then(() => restoreItem(item))
+            .catch(() => undefined);
+        },
+      },
+    });
+    void deletion.catch(() => toast.error('מחיקת הפריט נכשלה'));
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -51,8 +105,8 @@ export function ActiveList({ listId }: Props) {
               <ItemRow key={it.id} item={it}
                        onToggle={(next) => setInCart(it.id, next)}
                        onQtyChange={(next) => updateItem(it.id, { qty: next })}
-                       onDelete={() => deleteItem(it.id)}
-                       onOpenLink={() => setLinkingItemId(it.id)} />
+                       onDelete={() => deleteWithUndo(it)}
+                       onOpenLink={() => openLink(it)} />
             ))}
         <CartTotalFooter items={items} />
       </div>
@@ -74,11 +128,8 @@ export function ActiveList({ listId }: Props) {
         <LinkItemDialog initialQuery={linkingItem.name}
                         onClose={() => setLinkingItemId(null)}
                         onPick={(p) => {
-                          void updateItem(linkingItem.id, {
-                            name: p.name,
-                            barcode: p.barcode,
-                            estimated_price: p.price,
-                          });
+                          saveProductLinkDefault(linkingItem.name, p);
+                          void applyProduct(linkingItem, p);
                           setLinkingItemId(null);
                           toast.success(`קושר ל-${p.name}`);
                         }} />

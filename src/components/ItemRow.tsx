@@ -1,12 +1,12 @@
 import { Link2, Minus, Plus, Trash2 } from 'lucide-react';
 import { useSwipeable } from 'react-swipeable';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ListItem } from '../lib/supabase';
 import { formatCompactILS } from '../lib/format';
 import { cn } from '../lib/utils';
 
-const REVEAL_WIDTH = 80;
-const REVEAL_THRESHOLD = 40;
+const DELETE_THRESHOLD = 72;
+const MAX_DRAG = 96;
 const BASE_PADDING = 12;
 
 interface Props {
@@ -18,10 +18,10 @@ interface Props {
 }
 
 export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: Props) {
-  const [revealed, setRevealed] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const justSwiped = useRef(false);
+  const deletedBySwipe = useRef(false);
 
   const handlers = useSwipeable({
     onSwiping: ({ deltaX, absX, absY }) => {
@@ -29,18 +29,19 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
       // scroll the list instead of fighting it with a horizontal drag.
       if (absY > absX) return;
       setDragging(true);
-      const base = revealed ? REVEAL_WIDTH : 0;
-      setDragX(Math.max(0, Math.min(REVEAL_WIDTH, base + deltaX)));
+      setDragX(Math.max(-MAX_DRAG, Math.min(MAX_DRAG, deltaX)));
     },
-    onSwiped: ({ deltaX, absX, absY }) => {
+    onSwiped: ({ absX, absY }) => {
       setDragging(false);
-      if (absY > absX) { setDragX(revealed ? REVEAL_WIDTH : 0); return; }
-      const base = revealed ? REVEAL_WIDTH : 0;
-      const open = base + deltaX >= REVEAL_THRESHOLD;
-      setRevealed(open);
-      setDragX(open ? REVEAL_WIDTH : 0);
       justSwiped.current = true;
       setTimeout(() => { justSwiped.current = false; }, 100);
+      if (absY > absX) { setDragX(0); return; }
+      if (absX >= DELETE_THRESHOLD) {
+        deletedBySwipe.current = true;
+        onDelete();
+        return;
+      }
+      setDragX(0);
     },
     trackMouse: true,
     // Higher threshold + passive listeners (preventScrollOnSwipe: false) so
@@ -49,15 +50,6 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
     delta: 18,
     preventScrollOnSwipe: false,
   });
-
-  useEffect(() => {
-    if (!revealed) return;
-    const t = setTimeout(() => {
-      setRevealed(false);
-      setDragX(0);
-    }, 3500);
-    return () => clearTimeout(t);
-  }, [revealed]);
 
   function dec() {
     const next = Math.max(1, Number(item.qty) - 1);
@@ -68,8 +60,6 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
   }
 
   function dismiss() {
-    if (!revealed || justSwiped.current) return;
-    setRevealed(false);
     setDragX(0);
   }
 
@@ -78,13 +68,14 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
 
   return (
     <div className="relative overflow-hidden">
-      <button onClick={onDelete}
-              className="absolute inset-y-0 end-0 w-20 bg-red-600 text-white flex items-center justify-center gap-1.5 text-sm font-medium"
-              aria-label="מחק פריט"
-              tabIndex={revealed ? 0 : -1}>
+      <div className={cn(
+             'absolute inset-0 px-4 flex items-center justify-between bg-red-600/20 text-red-200 transition-opacity pointer-events-none',
+             Math.abs(dragX) > 8 ? 'opacity-100' : 'opacity-0'
+           )}
+           aria-hidden="true">
         <Trash2 size={18} />
-        מחק
-      </button>
+        <Trash2 size={18} />
+      </div>
       <div className={cn(
             'flex items-center gap-2 py-2.5 pe-3 border-b border-border bg-bg',
             item.is_in_cart && 'bg-emerald-500/10 border-emerald-400/20',
@@ -92,7 +83,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
           )}
            style={{
              transform: `translateX(${dragX}px)`,
-             paddingInlineStart: `${BASE_PADDING + dragX}px`,
+             paddingInlineStart: `${BASE_PADDING}px`,
              touchAction: 'pan-y',
            }}
            {...handlers}
@@ -103,7 +94,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
                className="w-5 h-5 accent-indigo-500 shrink-0" />
         <div className="flex-1 min-w-0 cursor-pointer"
              onClick={e => {
-               if (revealed || justSwiped.current) return;
+               if (justSwiped.current || deletedBySwipe.current) return;
                e.stopPropagation();
                onOpenLink();
              }}>

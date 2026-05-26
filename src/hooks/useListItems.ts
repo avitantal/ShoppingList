@@ -81,5 +81,11 @@ export function useListItems(listId: string | null) {
     if (error) { await refresh(); throw error; }
   }
 
-  return { items, loading, refresh, addItem, setInCart, updateItem, deleteItem };
+  async function restoreItem(item: ListItem) {
+    setItems(prev => sortListItems([...prev.filter(i => i.id !== item.id), item]));
+    const { error } = await db.from('list_items').insert(item);
+    if (error) { await refresh(); throw error; }
+  }
+
+  return { items, loading, refresh, addItem, setInCart, updateItem, deleteItem, restoreItem };
 }
