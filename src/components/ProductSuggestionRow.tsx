@@ -18,19 +18,11 @@ export function productSuggestionKey(product: SearchProductResult): string {
 }
 
 export function getCheapestProductKeys(results: SearchProductResult[]): Set<string> {
-  const byBarcode = new Map<string, { count: number; min: number }>();
-  for (const product of results) {
-    const current = byBarcode.get(product.barcode);
-    if (!current) byBarcode.set(product.barcode, { count: 1, min: product.price });
-    else byBarcode.set(product.barcode, { count: current.count + 1, min: Math.min(current.min, product.price) });
-  }
-
+  if (results.length === 0) return new Set();
+  const globalMin = results.reduce((min, r) => Math.min(min, r.price), Infinity);
   const keys = new Set<string>();
   for (const product of results) {
-    const group = byBarcode.get(product.barcode);
-    if (group && group.count > 1 && product.price <= group.min + 0.001) {
-      keys.add(productSuggestionKey(product));
-    }
+    if (product.price <= globalMin + 0.001) keys.add(productSuggestionKey(product));
   }
   return keys;
 }
