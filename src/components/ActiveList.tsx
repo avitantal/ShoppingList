@@ -158,8 +158,11 @@ export function ActiveList({ listId }: Props) {
                   collapsed={isCollapsed}
                   onToggle={() => toggleCollapsed(g.department.code)}
                 />
-                {!isCollapsed && (
-                  <div id={`dept-${g.department.code}-items`}>
+                <div
+                  className={`grid transition-[grid-template-rows] duration-200 ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}
+                  id={`dept-${g.department.code}-items`}
+                >
+                  <div className="overflow-hidden">
                     {g.items.map((it) => (
                       <ItemRow
                         key={it.id}
@@ -172,7 +175,7 @@ export function ActiveList({ listId }: Props) {
                       />
                     ))}
                   </div>
-                )}
+                </div>
               </Fragment>
             );
           })

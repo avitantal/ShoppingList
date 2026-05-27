@@ -34,10 +34,6 @@ export function ChangeDepartmentSheet({ itemName, currentDepartment, onPick, onC
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="min-w-0">
-            <div className="text-xs text-muted">שנה מחלקה</div>
-            <div className="text-sm font-medium truncate">{itemName}</div>
-          </div>
           <button
             type="button"
             onClick={onClose}
@@ -46,6 +42,10 @@ export function ChangeDepartmentSheet({ itemName, currentDepartment, onPick, onC
           >
             <X size={18} />
           </button>
+          <div className="min-w-0 text-end">
+            <div className="text-xs text-muted">שנה מחלקה</div>
+            <div className="text-sm font-medium truncate">{itemName}</div>
+          </div>
         </div>
         <ul role="listbox" className="max-h-[60vh] overflow-y-auto py-1">
           {list.map((d) => {

@@ -21,7 +21,7 @@ export function ChainFilter({ className = '' }: { className?: string }) {
             key={c.code}
             type="button"
             onClick={() => toggle(c.code)}
-            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-full border transition whitespace-nowrap ${
+            className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 min-h-[44px] rounded-full border transition whitespace-nowrap ${
               off
                 ? 'bg-bg text-muted border-border opacity-75'
                 : 'border-transparent'

@@ -80,6 +80,7 @@ export function AddItemInput({ onAdd }: Props) {
             onKeyDown={onKey}
             placeholder="הוסף פריט..."
             className="input flex-1"
+            aria-label="שם הפריט לרשימה"
             aria-autocomplete="list"
           />
         </div>

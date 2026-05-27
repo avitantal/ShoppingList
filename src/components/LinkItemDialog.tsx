@@ -34,10 +34,10 @@ export function LinkItemDialog({ initialQuery, onPick, onClose }: Props) {
       <div className="card w-full max-w-md p-4 max-h-[80vh] flex flex-col"
            onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">קישור פריט למוצר</h2>
-          <button className="btn-ghost p-1.5" onClick={onClose} aria-label="סגור">
+          <button className="btn-ghost p-1.5 shrink-0" onClick={onClose} aria-label="סגור">
             <X size={18} />
           </button>
+          <h2 className="text-lg font-semibold">קישור פריט למוצר</h2>
         </div>
         <input className="input mb-2"
                placeholder="חפש מוצר..."

@@ -1,4 +1,4 @@
-import { Link2, Minus, Plus, Trash2 } from 'lucide-react';
+import { Building2, Link2, Minus, Plus, Trash2 } from 'lucide-react';
 import { useSwipeable } from 'react-swipeable';
 import { useRef, useState } from 'react';
 import type { ListItem } from '../lib/supabase';
@@ -30,7 +30,6 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
     onChangeDepartment
       ? () => {
           justLongPressed.current = true;
-          // Reset shortly after so the next genuine tap still works.
           window.setTimeout(() => { justLongPressed.current = false; }, 400);
           onChangeDepartment();
         }
@@ -39,8 +38,6 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
 
   const handlers = useSwipeable({
     onSwiping: ({ deltaX, absX, absY }) => {
-      // Bail when the gesture is primarily vertical — let the browser
-      // scroll the list instead of fighting it with a horizontal drag.
       if (absY > absX) return;
       setDragging(true);
       setDragX(Math.max(-MAX_DRAG, Math.min(MAX_DRAG, deltaX)));
@@ -58,9 +55,6 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
       setDragX(0);
     },
     trackMouse: true,
-    // Higher threshold + passive listeners (preventScrollOnSwipe: false) so
-    // the browser can scroll vertically smoothly without waiting for JS.
-    // touch-action: pan-y on the row handles the horizontal/vertical split.
     delta: 18,
     preventScrollOnSwipe: false,
   });
@@ -79,17 +73,24 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
 
   const needsLink = !item.barcode;
   const hasPrice = item.estimated_price != null;
+  const swiping = Math.abs(dragX) > 8;
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative overflow-hidden group">
+      {/* Swipe-to-delete background — left side only (RTL: inline-end = natural delete direction) */}
       <div className={cn(
-             'absolute inset-0 px-4 flex items-center justify-between bg-red-600/20 text-red-200 transition-opacity pointer-events-none',
-             Math.abs(dragX) > 8 ? 'opacity-100' : 'opacity-0'
+             'absolute inset-0 px-4 flex items-center justify-start bg-red-600/20 text-red-200 transition-opacity pointer-events-none',
+             swiping ? 'opacity-100' : 'opacity-0'
            )}
            aria-hidden="true">
         <Trash2 size={18} />
-        <Trash2 size={18} />
       </div>
+      {/* Passive swipe affordance — faint trash hint always visible on the left edge */}
+      {!swiping && (
+        <div className="absolute inset-y-0 start-0 w-10 flex items-center justify-center text-muted/20 pointer-events-none" aria-hidden="true">
+          <Trash2 size={14} />
+        </div>
+      )}
       <div className={cn(
             'flex items-center gap-2 py-2.5 pe-3 border-b border-border bg-bg',
             item.is_in_cart && 'bg-emerald-500/10 border-emerald-400/20',
@@ -108,10 +109,20 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
                onClick={e => e.stopPropagation()}
                className="w-5 h-5 accent-indigo-500 shrink-0" />
         <div className="flex-1 min-w-0 cursor-pointer"
+             role="button"
+             tabIndex={0}
+             aria-label={`קשר מוצר: ${item.name}`}
              onClick={e => {
                if (justSwiped.current || deletedBySwipe.current || justLongPressed.current) return;
                e.stopPropagation();
                onOpenLink();
+             }}
+             onKeyDown={e => {
+               if (e.key === 'Enter' || e.key === ' ') {
+                 e.preventDefault();
+                 e.stopPropagation();
+                 onOpenLink();
+               }
              }}>
           <div className={cn('flex items-center gap-1.5 text-sm font-medium min-w-0', item.is_in_cart && 'line-through text-emerald-200')}>
             {needsLink && (
@@ -126,23 +137,37 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
             <div className="text-xs text-muted truncate">
               {item.unit ?? ''}
               {item.unit && needsLink ? ' · ' : ''}
-              {needsLink ? <span className="text-muted/80">אין מחיר · לחץ לקישור מוצר</span> : null}
+              {needsLink ? <span className="text-muted/80">אין מחיר · לחץ לקישור מוצר ומחיר</span> : null}
             </div>
           )}
         </div>
         <div className="shrink-0 flex flex-col items-end gap-1" onClick={e => e.stopPropagation()}>
-          <div className="min-w-16 text-left text-sm font-semibold tabular-nums text-text [direction:ltr]">
-            {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
-          </div>
           <div className="flex items-center gap-1">
+            <div className="min-w-16 text-right text-sm font-semibold tabular-nums text-text [direction:ltr]">
+              {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
+            </div>
+            {/* Desktop-only department change button — touch uses long-press */}
+            {onChangeDepartment && (
+              <button
+                type="button"
+                onClick={onChangeDepartment}
+                className="btn-ghost w-7 h-7 p-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity hidden [@media(hover:hover)]:flex"
+                aria-label="שנה מחלקה"
+                title="שנה מחלקה"
+              >
+                <Building2 size={13} />
+              </button>
+            )}
+          </div>
+          <div className="flex items-center">
             <button onClick={dec}
                     disabled={Number(item.qty) <= 1}
-                    className="btn-ghost w-7 h-7 p-0 disabled:opacity-30"
+                    className="btn-ghost w-11 h-11 p-0 disabled:opacity-30"
                     aria-label="הפחת כמות">
               <Minus size={14} />
             </button>
             <span className="min-w-6 text-center text-sm tabular-nums">{item.qty}</span>
-            <button onClick={inc} className="btn-ghost w-7 h-7 p-0" aria-label="הוסף כמות">
+            <button onClick={inc} className="btn-ghost w-11 h-11 p-0" aria-label="הוסף כמות">
               <Plus size={14} />
             </button>
           </div>

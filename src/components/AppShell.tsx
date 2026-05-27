@@ -55,15 +55,15 @@ export function AppShell() {
         </div>
       )}
       <main className="flex-1 min-w-0 flex flex-col">
-        <header className="flex items-center justify-between gap-2 p-3 border-b border-border bg-surface relative">
+        <header dir="ltr" className="flex items-center justify-between gap-2 p-3 border-b border-border bg-surface relative">
           <button className="btn-ghost p-2 shrink-0" onClick={() => setDrawerOpen(true)} aria-label="פתח תפריט">
             <Menu size={20} />
           </button>
-          <h1 className="flex-1 min-w-0 text-center font-semibold truncate">{active?.name ?? '—'}</h1>
+          <h1 className="flex-1 min-w-0 text-center font-semibold truncate" dir="rtl">{active?.name ?? '—'}</h1>
           <button className="btn-ghost p-2 shrink-0" disabled={!isOwner} onClick={() => setShareOpen(true)} aria-label="שתף">
             <Share2 size={20} />
           </button>
-          <span className="absolute bottom-0.5 left-2 text-[10px] text-muted/60 font-mono pointer-events-none select-none">
+          <span className="absolute bottom-0.5 left-2 text-[10px] text-muted/80 font-mono pointer-events-none select-none">
             v{__APP_VERSION__}
           </span>
         </header>

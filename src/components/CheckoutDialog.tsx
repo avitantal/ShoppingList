@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ListItem } from '../lib/supabase';
 import { useCheckout } from '../hooks/useCheckout';
 import { formatILS } from '../lib/format';
@@ -18,6 +18,12 @@ export function CheckoutDialog({ listId, cartItems, onClose, onDone }: Props) {
     id: i.id, name: i.name, qty: Number(i.qty), unit_price: i.estimated_price?.toString() ?? '',
   })));
   const { checkout, submitting } = useCheckout(listId);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const total = rows.reduce((s, r) => {
     const up = parseFloat(r.unit_price);
@@ -64,8 +70,13 @@ export function CheckoutDialog({ listId, cartItems, onClose, onDone }: Props) {
           ))}
         </div>
         <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-muted">סה"כ</span>
-          <span className="text-lg font-semibold">{formatILS(total)}</span>
+          <div>
+            <span className="text-sm text-muted">סה"כ</span>
+            {total === 0 && (
+              <div className="text-xs text-muted/70">הזן מחירים בשורות למעלה</div>
+            )}
+          </div>
+          <span className="text-lg font-semibold">{total > 0 ? formatILS(total) : '—'}</span>
         </div>
         <div className="flex gap-2">
           <button className="btn-ghost flex-1" onClick={onClose}>ביטול</button>
