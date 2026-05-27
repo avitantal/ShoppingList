@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import type { ListItem } from '../lib/supabase';
 import { formatCompactILS } from '../lib/format';
 import { cn } from '../lib/utils';
+import { useLongPress } from '../hooks/useLongPress';
 
 const DELETE_THRESHOLD = 72;
 const MAX_DRAG = 96;
@@ -15,13 +16,26 @@ interface Props {
   onQtyChange: (next: number) => void;
   onDelete: () => void;
   onOpenLink: () => void;
+  onChangeDepartment?: () => void;
 }
 
-export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: Props) {
+export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onChangeDepartment }: Props) {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const justSwiped = useRef(false);
   const deletedBySwipe = useRef(false);
+  const justLongPressed = useRef(false);
+
+  const longPress = useLongPress(
+    onChangeDepartment
+      ? () => {
+          justLongPressed.current = true;
+          // Reset shortly after so the next genuine tap still works.
+          window.setTimeout(() => { justLongPressed.current = false; }, 400);
+          onChangeDepartment();
+        }
+      : null,
+  );
 
   const handlers = useSwipeable({
     onSwiping: ({ deltaX, absX, absY }) => {
@@ -87,6 +101,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
              touchAction: 'pan-y',
            }}
            {...handlers}
+           {...longPress}
            onClick={dismiss}>
         <input type="checkbox" checked={item.is_in_cart}
                onChange={e => onToggle(e.target.checked)}
@@ -94,7 +109,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink }: P
                className="w-5 h-5 accent-indigo-500 shrink-0" />
         <div className="flex-1 min-w-0 cursor-pointer"
              onClick={e => {
-               if (justSwiped.current || deletedBySwipe.current) return;
+               if (justSwiped.current || deletedBySwipe.current || justLongPressed.current) return;
                e.stopPropagation();
                onOpenLink();
              }}>

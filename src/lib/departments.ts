@@ -855,8 +855,10 @@ const RULES: Rule[] = [
 // Classifier
 // ---------------------------------------------------------------------------
 
-/** Strip Hebrew niqqud and collapse whitespace. */
-function normalize(name: string): string {
+/** Strip Hebrew niqqud and collapse whitespace. Exported so name-based
+ *  user overrides (per-item, no barcode) key on the same string the
+ *  classifier sees. */
+export function normalizeItemName(name: string): string {
   return name
     .normalize('NFKC')
     .replace(/[֑-ׇ]/g, '')
@@ -864,6 +866,8 @@ function normalize(name: string): string {
     .trim()
     .toLowerCase();
 }
+
+const normalize = normalizeItemName;
 
 export interface ClassificationResult {
   department: DepartmentCode;
