@@ -74,7 +74,7 @@ export function AppShell() {
               <button className="btn-ghost" onClick={() => void refresh()}>נסה שוב</button>
             </div>
           ) : active ? (
-            <ActiveList listId={active.id} />
+            <ActiveList list={active} />
           ) : loading ? (
             <div className="p-8 text-center text-muted">טוען רשימות...</div>
           ) : (

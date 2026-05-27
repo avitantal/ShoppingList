@@ -1,26 +1,107 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  KeyboardSensor,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useListItems } from '../hooks/useListItems';
 import { useProductDepartments } from '../hooks/useProductDepartments';
 import { useDepartmentNameOverrides } from '../hooks/useDepartmentNameOverrides';
 import { useDepartmentCollapse } from '../hooks/useDepartmentCollapse';
+import { useDepartmentOrder } from '../hooks/useDepartmentOrder';
 import { ItemRow } from './ItemRow';
 import { AddItemInput } from './AddItemInput';
 import { CartTotalFooter } from './CartTotalFooter';
 import { CheckoutDialog } from './CheckoutDialog';
 import { LinkItemDialog } from './LinkItemDialog';
 import { DepartmentHeader } from './DepartmentHeader';
+import { DepartmentHeaderDragOverlay } from './DepartmentHeaderDragOverlay';
 import { ChangeDepartmentSheet } from './ChangeDepartmentSheet';
 import { getProductLinkDefault, saveProductLinkDefault } from '../lib/productLinkDefaults';
 import { groupByDepartment, getDepartmentForItem } from '../lib/departmentLookup';
-import { db, type ListItem, type SearchProductResult } from '../lib/supabase';
+import { db, type ListItem, type SearchProductResult, type ShoppingList } from '../lib/supabase';
 import type { DepartmentCode } from '../lib/departments';
+import type { DepartmentGroup } from '../lib/departmentLookup';
 
-interface Props { listId: string; }
+interface SortableGroupProps {
+  group: DepartmentGroup;
+  collapsed: boolean;
+  onToggle: () => void;
+  onSetInCart: (id: string, val: boolean) => void;
+  onQtyChange: (id: string, qty: number) => void;
+  onDelete: (item: ListItem) => void;
+  onOpenLink: (item: ListItem) => void;
+  onChangeDepartment: (item: ListItem) => void;
+}
 
-export function ActiveList({ listId }: Props) {
-  const { items, loading, addItem, setInCart, updateItem, deleteItem, restoreItem, refresh } = useListItems(listId);
+function SortableDepartmentGroup({
+  group, collapsed, onToggle,
+  onSetInCart, onQtyChange, onDelete, onOpenLink, onChangeDepartment,
+}: SortableGroupProps) {
+  const {
+    setNodeRef, transform, transition, isDragging, attributes, listeners,
+  } = useSortable({ id: group.department.code });
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.3 : 1,
+      }}
+    >
+      <DepartmentHeader
+        department={group.department}
+        items={group.items}
+        collapsed={collapsed}
+        onToggle={onToggle}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+      <div
+        className={`grid transition-[grid-template-rows] duration-200 ${
+          collapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+        }`}
+        id={`dept-${group.department.code}-items`}
+      >
+        <div className="overflow-hidden">
+          {group.items.map((it) => (
+            <ItemRow
+              key={it.id}
+              item={it}
+              onToggle={(next) => onSetInCart(it.id, next)}
+              onQtyChange={(next) => onQtyChange(it.id, next)}
+              onDelete={() => onDelete(it)}
+              onOpenLink={() => onOpenLink(it)}
+              onChangeDepartment={() => onChangeDepartment(it)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface Props { list: ShoppingList; }
+
+export function ActiveList({ list }: Props) {
+  const { items, loading, addItem, setInCart, updateItem, deleteItem, restoreItem, refresh } = useListItems(list.id);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
   const [editingDeptItemId, setEditingDeptItemId] = useState<string | null>(null);
@@ -32,8 +113,8 @@ export function ActiveList({ listId }: Props) {
   const autoLinkedListId = useRef<string | null>(null);
   useEffect(() => {
     if (loading) return;
-    if (autoLinkedListId.current === listId) return;
-    autoLinkedListId.current = listId;
+    if (autoLinkedListId.current === list.id) return;
+    autoLinkedListId.current = list.id;
 
     void (async () => {
       // Local snapshot so we can track projected barcodes without waiting for React re-renders.
@@ -73,7 +154,7 @@ export function ActiveList({ listId }: Props) {
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listId, loading]);
+  }, [list.id, loading]);
   const cartCount = useMemo(() => items.filter(i => i.is_in_cart).length, [items]);
   const linkingItem = linkingItemId ? items.find(i => i.id === linkingItemId) ?? null : null;
   const editingDeptItem = editingDeptItemId ? items.find(i => i.id === editingDeptItemId) ?? null : null;
@@ -87,10 +168,17 @@ export function ActiveList({ listId }: Props) {
   const catalog = useProductDepartments(barcodes);
   const { overrides: nameOverrides, setOverride: setNameOverride } = useDepartmentNameOverrides();
   const { collapsed, toggle: toggleCollapsed } = useDepartmentCollapse();
+  const { orderMap, reorder } = useDepartmentOrder(list.id, list.department_order);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { delay: 550, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const [draggingCode, setDraggingCode] = useState<string | null>(null);
 
   const groups = useMemo(
-    () => groupByDepartment(items, catalog, undefined, nameOverrides),
-    [items, catalog, nameOverrides],
+    () => groupByDepartment(items, catalog, orderMap, nameOverrides),
+    [items, catalog, orderMap, nameOverrides],
   );
 
   async function applyProduct(item: ListItem, product: Pick<SearchProductResult, 'name' | 'barcode' | 'price'> | { name: string; barcode: string; estimated_price: number }) {
@@ -164,6 +252,20 @@ export function ActiveList({ listId }: Props) {
     }
   }
 
+  function handleDragStart({ active }: DragStartEvent) {
+    setDraggingCode(active.id as string);
+  }
+
+  function handleDragEnd({ active, over }: DragEndEvent) {
+    setDraggingCode(null);
+    if (!over || active.id === over.id) return;
+    const codes = groups.map(g => g.department.code);
+    const oldIndex = codes.indexOf(active.id as string);
+    const newIndex = codes.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    reorder(arrayMove(codes, oldIndex, newIndex));
+  }
+
   return (
     <div className="flex flex-col h-full">
       <AddItemInput
@@ -195,37 +297,39 @@ export function ActiveList({ listId }: Props) {
         {items.length === 0 ? (
           <div className="text-center text-muted p-8 text-sm">הרשימה ריקה — הוסף את הפריט הראשון</div>
         ) : (
-          groups.map((g) => {
-            const isCollapsed = collapsed.has(g.department.code);
-            return (
-              <Fragment key={g.department.code}>
-                <DepartmentHeader
-                  department={g.department}
-                  items={g.items}
-                  collapsed={isCollapsed}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={groups.map(g => g.department.code)}
+              strategy={verticalListSortingStrategy}
+            >
+              {groups.map((g) => (
+                <SortableDepartmentGroup
+                  key={g.department.code}
+                  group={g}
+                  collapsed={collapsed.has(g.department.code)}
                   onToggle={() => toggleCollapsed(g.department.code)}
+                  onSetInCart={(id, val) => setInCart(id, val)}
+                  onQtyChange={(id, qty) => updateItem(id, { qty })}
+                  onDelete={deleteWithUndo}
+                  onOpenLink={openLink}
+                  onChangeDepartment={(it) => setEditingDeptItemId(it.id)}
                 />
-                <div
-                  className={`grid transition-[grid-template-rows] duration-200 ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}
-                  id={`dept-${g.department.code}-items`}
-                >
-                  <div className="overflow-hidden">
-                    {g.items.map((it) => (
-                      <ItemRow
-                        key={it.id}
-                        item={it}
-                        onToggle={(next) => setInCart(it.id, next)}
-                        onQtyChange={(next) => updateItem(it.id, { qty: next })}
-                        onDelete={() => deleteWithUndo(it)}
-                        onOpenLink={() => openLink(it)}
-                        onChangeDepartment={() => setEditingDeptItemId(it.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </Fragment>
-            );
-          })
+              ))}
+            </SortableContext>
+            <DragOverlay>
+              {draggingCode != null && (() => {
+                const g = groups.find(gr => gr.department.code === draggingCode);
+                return g ? (
+                  <DepartmentHeaderDragOverlay department={g.department} items={g.items} />
+                ) : null;
+              })()}
+            </DragOverlay>
+          </DndContext>
         )}
         <CartTotalFooter items={items} />
       </div>
@@ -238,7 +342,7 @@ export function ActiveList({ listId }: Props) {
         </div>
       )}
       {checkoutOpen && (
-        <CheckoutDialog listId={listId}
+        <CheckoutDialog listId={list.id}
                         cartItems={items.filter(i => i.is_in_cart)}
                         onClose={() => setCheckoutOpen(false)}
                         onDone={() => { setCheckoutOpen(false); void refresh(); }} />
