@@ -34,8 +34,8 @@ export function DepartmentHeader({ department, items, collapsed, onToggle }: Pro
       type="button"
       onClick={onToggle}
       className={cn(
-        'w-full flex items-center gap-2 py-1.5 pe-3 ps-3 min-h-[44px] bg-surface/60 border-b border-border text-sm font-semibold text-text/90 sticky top-0 z-10',
-        allDone && 'text-emerald-300/80',
+        'w-full flex items-center gap-2 py-1.5 pe-3 ps-2 min-h-[36px] bg-surface border-b border-border border-s-2 text-xs font-semibold uppercase tracking-wider sticky top-0 z-10',
+        allDone ? 'text-emerald-400/80 border-s-emerald-500/60' : 'text-muted border-s-accent/70',
       )}
       aria-expanded={!collapsed}
       aria-controls={`dept-${department.code}-items`}

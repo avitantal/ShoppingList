@@ -92,7 +92,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
         </div>
       )}
       <div className={cn(
-            'flex items-center gap-2 py-2.5 pe-3 border-b border-border bg-bg',
+            'flex items-center gap-2 py-2 pe-2 border-b border-border bg-bg',
             item.is_in_cart && 'bg-emerald-500/10 border-emerald-400/20',
             !dragging && 'transition-[transform,padding] duration-200 ease-out'
           )}
@@ -126,51 +126,41 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
              }}>
           <div className={cn('flex items-center gap-1.5 text-sm font-medium min-w-0', item.is_in_cart && 'line-through text-emerald-200')}>
             {needsLink && (
-              <span className="w-5 h-5 rounded-md bg-amber-400/10 text-amber-300 inline-flex items-center justify-center shrink-0"
+              <span className="w-4 h-4 rounded bg-amber-400/10 text-amber-300 inline-flex items-center justify-center shrink-0"
                     title="קשר למוצר">
-                <Link2 size={12} />
+                <Link2 size={10} />
               </span>
             )}
             <span className="truncate">{item.name}</span>
+            {item.unit && <span className="text-xs text-muted shrink-0">{item.unit}</span>}
           </div>
-          {(item.unit || needsLink) && (
-            <div className="text-xs text-muted truncate">
-              {item.unit ?? ''}
-              {item.unit && needsLink ? ' · ' : ''}
-              {needsLink ? <span className="text-muted/80">אין מחיר · לחץ לקישור מוצר ומחיר</span> : null}
-            </div>
-          )}
         </div>
-        <div className="shrink-0 flex flex-col items-end gap-1" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-1">
-            <div className="min-w-16 text-right text-sm font-semibold tabular-nums text-text [direction:ltr]">
-              {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
-            </div>
-            {/* Desktop-only department change button — touch uses long-press */}
-            {onChangeDepartment && (
-              <button
-                type="button"
-                onClick={onChangeDepartment}
-                className="btn-ghost w-7 h-7 p-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity hidden [@media(hover:hover)]:flex"
-                aria-label="שנה מחלקה"
-                title="שנה מחלקה"
-              >
-                <Building2 size={13} />
-              </button>
-            )}
+        <div className="shrink-0 flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+          <div className="min-w-14 text-right text-sm font-semibold tabular-nums text-text [direction:ltr]">
+            {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
           </div>
-          <div className="flex items-center">
-            <button onClick={dec}
-                    disabled={Number(item.qty) <= 1}
-                    className="btn-ghost w-11 h-11 p-0 disabled:opacity-30"
-                    aria-label="הפחת כמות">
-              <Minus size={14} />
+          {/* Desktop-only department change button — touch uses long-press */}
+          {onChangeDepartment && (
+            <button
+              type="button"
+              onClick={onChangeDepartment}
+              className="btn-ghost w-7 h-7 p-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity hidden [@media(hover:hover)]:flex"
+              aria-label="שנה מחלקה"
+              title="שנה מחלקה"
+            >
+              <Building2 size={13} />
             </button>
-            <span className="min-w-6 text-center text-sm tabular-nums">{item.qty}</span>
-            <button onClick={inc} className="btn-ghost w-11 h-11 p-0" aria-label="הוסף כמות">
-              <Plus size={14} />
-            </button>
-          </div>
+          )}
+          <button onClick={dec}
+                  disabled={Number(item.qty) <= 1}
+                  className="btn-ghost w-9 h-9 p-0 disabled:opacity-30"
+                  aria-label="הפחת כמות">
+            <Minus size={14} />
+          </button>
+          <span className="min-w-5 text-center text-sm tabular-nums">{item.qty}</span>
+          <button onClick={inc} className="btn-ghost w-9 h-9 p-0" aria-label="הוסף כמות">
+            <Plus size={14} />
+          </button>
         </div>
       </div>
     </div>
