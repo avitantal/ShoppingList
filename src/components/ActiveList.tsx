@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { useListItems } from '../hooks/useListItems';
@@ -20,13 +20,40 @@ import type { DepartmentCode } from '../lib/departments';
 interface Props { listId: string; }
 
 export function ActiveList({ listId }: Props) {
-  const { items, addItem, setInCart, updateItem, deleteItem, restoreItem, refresh } = useListItems(listId);
+  const { items, loading, addItem, setInCart, updateItem, deleteItem, restoreItem, refresh } = useListItems(listId);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
   const [editingDeptItemId, setEditingDeptItemId] = useState<string | null>(null);
   // Bumps to force a re-fetch / re-render of the catalog index after a
   // manual department override is written via RPC.
   const [catalogBust, setCatalogBust] = useState(0);
+
+  // Auto-link unlinked items on first load per list.
+  const autoLinkedListId = useRef<string | null>(null);
+  useEffect(() => {
+    if (loading) return;
+    if (autoLinkedListId.current === listId) return;
+    autoLinkedListId.current = listId;
+
+    const unlinked = items.filter(i => !i.barcode);
+    if (unlinked.length === 0) return;
+
+    void (async () => {
+      for (const item of unlinked) {
+        try {
+          const product = await getProductLinkDefault(item.name);
+          if (product) {
+            await updateItem(item.id, {
+              name: product.name,
+              barcode: product.barcode,
+              estimated_price: product.price,
+            });
+          }
+        } catch { /* silent — don't block on individual failures */ }
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listId, loading]);
   const cartCount = useMemo(() => items.filter(i => i.is_in_cart).length, [items]);
   const linkingItem = linkingItemId ? items.find(i => i.id === linkingItemId) ?? null : null;
   const editingDeptItem = editingDeptItemId ? items.find(i => i.id === editingDeptItemId) ?? null : null;
