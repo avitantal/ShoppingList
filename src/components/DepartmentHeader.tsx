@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { useMemo } from 'react';
+import type React from 'react';
 import type { DepartmentMeta } from '../lib/departments';
 import type { ListItem } from '../lib/supabase';
 import { formatCompactILS } from '../lib/format';
@@ -10,9 +11,10 @@ interface Props {
   items: ListItem[];
   collapsed: boolean;
   onToggle: () => void;
+  dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
 }
 
-export function DepartmentHeader({ department, items, collapsed, onToggle }: Props) {
+export function DepartmentHeader({ department, items, collapsed, onToggle, dragHandleProps }: Props) {
   const { remainingCount, total } = useMemo(() => {
     let rc = 0;
     let t = 0;
@@ -33,6 +35,7 @@ export function DepartmentHeader({ department, items, collapsed, onToggle }: Pro
     <button
       type="button"
       onClick={onToggle}
+      {...(dragHandleProps ?? {})}
       className={cn(
         'w-full flex items-center gap-2 py-1.5 pe-3 ps-2 min-h-[36px] bg-surface border-b border-border border-s-2 text-xs font-semibold uppercase tracking-wider sticky top-0 z-10',
         allDone ? 'text-emerald-400/80 border-s-emerald-500/60' : 'text-muted border-s-accent/70',
