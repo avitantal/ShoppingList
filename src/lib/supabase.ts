@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { DepartmentCode } from './departments';
 
 export const AUTH_STORAGE_KEY = 'shoppinglist-auth-token';
 
@@ -35,6 +36,7 @@ export interface ShoppingList {
   archived_at: string | null;
   created_at: string;
   updated_at: string;
+  department_order: DepartmentCode[] | null;
 }
 
 export interface ListMember {

@@ -5,9 +5,9 @@ import { makeMockClient } from '../helpers/mockSupabase';
 vi.mock('../../lib/supabase', () => {
   const mock = makeMockClient({
     shopping_lists: [
-      { id: 'L1', owner_id: 'u1', name: 'הרשימה שלי', is_default: true,  archived_at: null, created_at: 't', updated_at: 't' },
-      { id: 'L2', owner_id: 'u1', name: 'שבועי',     is_default: false, archived_at: null, created_at: 't', updated_at: 't' },
-      { id: 'L3', owner_id: 'u2', name: 'משפחתי',    is_default: false, archived_at: null, created_at: 't', updated_at: 't' },
+      { id: 'L1', owner_id: 'u1', name: 'הרשימה שלי', is_default: true,  archived_at: null, created_at: 't', updated_at: 't', department_order: null },
+      { id: 'L2', owner_id: 'u1', name: 'שבועי',     is_default: false, archived_at: null, created_at: 't', updated_at: 't', department_order: null },
+      { id: 'L3', owner_id: 'u2', name: 'משפחתי',    is_default: false, archived_at: null, created_at: 't', updated_at: 't', department_order: null },
     ],
     list_members: [
       { id: 'M1', list_id: 'L3', user_id: 'u1', invited_email: 'me@example.com', role: 'editor', invited_by: 'u2', invited_at: 't', joined_at: 't' },
