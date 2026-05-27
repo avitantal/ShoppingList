@@ -28,18 +28,19 @@ export function ActiveList({ listId }: Props) {
   // manual department override is written via RPC.
   const [catalogBust, setCatalogBust] = useState(0);
 
-  // Auto-link unlinked items on first load per list.
+  // On first load per list: auto-link unlinked items, then merge duplicates.
   const autoLinkedListId = useRef<string | null>(null);
   useEffect(() => {
     if (loading) return;
     if (autoLinkedListId.current === listId) return;
     autoLinkedListId.current = listId;
 
-    const unlinked = items.filter(i => !i.barcode);
-    if (unlinked.length === 0) return;
-
     void (async () => {
-      for (const item of unlinked) {
+      // Local snapshot so we can track projected barcodes without waiting for React re-renders.
+      const projected = items.map(i => ({ ...i }));
+
+      // Step 1: link items that have a saved default.
+      for (const item of projected.filter(i => !i.barcode)) {
         try {
           const product = await getProductLinkDefault(item.name);
           if (product) {
@@ -48,8 +49,27 @@ export function ActiveList({ listId }: Props) {
               barcode: product.barcode,
               estimated_price: product.price,
             });
+            Object.assign(item, { name: product.name, barcode: product.barcode, estimated_price: product.price });
           }
-        } catch { /* silent — don't block on individual failures */ }
+        } catch { /* silent */ }
+      }
+
+      // Step 2: merge items that now share a barcode.
+      const byBarcode = new Map<string, typeof projected>();
+      for (const item of projected) {
+        if (!item.barcode) continue;
+        const group = byBarcode.get(item.barcode);
+        if (group) group.push(item);
+        else byBarcode.set(item.barcode, [item]);
+      }
+      for (const [, group] of byBarcode) {
+        if (group.length < 2) continue;
+        const [keep, ...dupes] = group;
+        const totalQty = group.reduce((sum, i) => sum + Number(i.qty), 0);
+        try {
+          await updateItem(keep.id, { qty: totalQty });
+          for (const dupe of dupes) await deleteItem(dupe.id);
+        } catch { /* silent */ }
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
