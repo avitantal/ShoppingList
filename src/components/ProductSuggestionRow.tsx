@@ -13,16 +13,63 @@ function formatPackageSize(qty: number | null, measure: string | null): string {
   return `${qty} ${unitWord}`;
 }
 
+type UnitType = 'weight' | 'volume' | 'count';
+
+function toBaseUnit(qty: number, measure: string | null): { qty: number; type: UnitType } | null {
+  if (!qty || qty <= 0) return null;
+  const m = (measure ?? '').trim();
+  if (/גרם|^g$|^gr$/i.test(m))            return { qty,          type: 'weight' };
+  if (/ק["""']?ג|^kg$/i.test(m))           return { qty: qty * 1000, type: 'weight' };
+  if (/מ["""']?ל|^ml$/i.test(m))           return { qty,          type: 'volume' };
+  if (/ליטר|^ל'$|^l$/i.test(m))           return { qty: qty * 1000, type: 'volume' };
+  if (/יח['."]|^pcs?$/i.test(m))           return { qty,          type: 'count' };
+  return null;
+}
+
+function pricePerBase(product: SearchProductResult): { ppu: number; type: UnitType } | null {
+  if (!product.unit_qty) return null;
+  const base = toBaseUnit(product.unit_qty, product.unit_measure);
+  if (!base) return null;
+  return { ppu: product.price / base.qty, type: base.type };
+}
+
+function formatPricePerUnit(product: SearchProductResult): string | null {
+  const ppb = pricePerBase(product);
+  if (!ppb) return null;
+  if (ppb.type === 'count') return null; // not useful to show per-unit for count
+  const per = 100;
+  const label = ppb.type === 'weight' ? '100 גר\'' : '100 מ"ל';
+  return `${formatCompactILS(ppb.ppu * per)} / ${label}`;
+}
+
 export function productSuggestionKey(product: SearchProductResult): string {
   return `${product.chain_code}:${product.barcode}`;
 }
 
 export function getCheapestProductKeys(results: SearchProductResult[]): Set<string> {
   if (results.length === 0) return new Set();
+
+  // Find minimum price-per-base-unit within each unit type group.
+  const minByType = new Map<UnitType, number>();
+  for (const product of results) {
+    const ppb = pricePerBase(product);
+    if (!ppb) continue;
+    const cur = minByType.get(ppb.type);
+    if (cur === undefined || ppb.ppu < cur) minByType.set(ppb.type, ppb.ppu);
+  }
+
+  // Fallback: global minimum absolute price for products without unit data.
   const globalMin = results.reduce((min, r) => Math.min(min, r.price), Infinity);
+
   const keys = new Set<string>();
   for (const product of results) {
-    if (product.price <= globalMin + 0.001) keys.add(productSuggestionKey(product));
+    const ppb = pricePerBase(product);
+    if (ppb) {
+      const minPpu = minByType.get(ppb.type)!;
+      if (ppb.ppu <= minPpu * 1.001) keys.add(productSuggestionKey(product));
+    } else if (product.price <= globalMin + 0.001) {
+      keys.add(productSuggestionKey(product));
+    }
   }
   return keys;
 }
@@ -46,6 +93,7 @@ export function ProductSuggestionRow({
 }: Props) {
   const badge = CHAIN_BADGE_COLORS[product.chain_code] ?? BADGE_FALLBACK;
   const packageSize = formatPackageSize(product.unit_qty, product.unit_measure);
+  const ppu = formatPricePerUnit(product);
 
   return (
     <li
@@ -89,9 +137,12 @@ export function ProductSuggestionRow({
         <span className="text-base font-bold tabular-nums text-text [direction:ltr]">
           {formatCompactILS(product.price)}
         </span>
+        {ppu && (
+          <span className="text-[10px] text-muted tabular-nums [direction:ltr]">{ppu}</span>
+        )}
         {cheapest && (
           <span className="text-[10px] leading-4 px-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 text-emerald-300 font-bold">
-            הכי זול
+            הכי משתלם
           </span>
         )}
       </div>
