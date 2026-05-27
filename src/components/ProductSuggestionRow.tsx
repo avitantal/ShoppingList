@@ -18,11 +18,12 @@ type UnitType = 'weight' | 'volume' | 'count';
 function toBaseUnit(qty: number, measure: string | null): { qty: number; type: UnitType } | null {
   if (!qty || qty <= 0) return null;
   const m = (measure ?? '').trim();
-  if (/גרם|^g$|^gr$/i.test(m))            return { qty,          type: 'weight' };
-  if (/ק["""']?ג|^kg$/i.test(m))           return { qty: qty * 1000, type: 'weight' };
-  if (/מ["""']?ל|^ml$/i.test(m))           return { qty,          type: 'volume' };
-  if (/ליטר|^ל'$|^l$/i.test(m))           return { qty: qty * 1000, type: 'volume' };
-  if (/יח['."]|^pcs?$/i.test(m))           return { qty,          type: 'count' };
+  // More-specific patterns FIRST — קילוגרם contains גרם; מיליליטר contains ליטר
+  if (/קילוגרם|ק["""']?ג|^kg$/i.test(m))   return { qty: qty * 1000, type: 'weight' };
+  if (/גרם|^g$|^gr$/i.test(m))             return { qty,             type: 'weight' };
+  if (/מיליליטר|מ["""']?ל|^ml$/i.test(m))  return { qty,             type: 'volume' };
+  if (/ליטר|^ל'$|^l$/i.test(m))            return { qty: qty * 1000, type: 'volume' };
+  if (/יחידות|יח[.'"]|^pcs?$/i.test(m))    return { qty,             type: 'count' };
   return null;
 }
 
