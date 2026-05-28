@@ -44,8 +44,23 @@ CREATE INDEX IF NOT EXISTS product_prices_chain_barcode
   ON shopping.product_prices (chain_code, barcode);
 
 -- 6. Disable realtime replication on high-write tables to reduce overhead
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS shopping.product_prices;
-ALTER PUBLICATION supabase_realtime DROP TABLE IF EXISTS shopping.product_price_changes;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'shopping' AND tablename = 'product_prices'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE shopping.product_prices;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'shopping' AND tablename = 'product_price_changes'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE shopping.product_price_changes;
+  END IF;
+END $$;
 
 -- 7. Seed the 6 new retail chains
 INSERT INTO shopping.chains (code, display_name) VALUES

@@ -2,9 +2,11 @@ import { serve } from "https://deno.land/std@0.208.0/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
+// Use shopping schema for all DB access
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  { db: { schema: "shopping" } },
 );
 
 const ALL_CHAINS = ["shufersal","mega","rami_levy","victory","osher_ad","hazi_hinam","yohananof"];
