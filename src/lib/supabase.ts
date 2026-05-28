@@ -85,8 +85,13 @@ export interface SearchProductResult extends Product {
 // Brand colors used by the autocomplete chain badge. Keep this in sync with
 // rows in shopping.chains; a missing entry falls back to neutral gray.
 export const CHAIN_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {
-  shufersal: { bg: '#B91C1C', fg: '#FFFFFF' },
-  rami_levy: { bg: '#1E3A8A', fg: '#FFFFFF' },
+  shufersal:  { bg: '#B91C1C', fg: '#FFFFFF' },
+  rami_levy:  { bg: '#1E3A8A', fg: '#FFFFFF' },
+  mega:       { bg: '#0EA5E9', fg: '#FFFFFF' },
+  victory:    { bg: '#7C3AED', fg: '#FFFFFF' },
+  osher_ad:   { bg: '#D97706', fg: '#FFFFFF' },
+  hazi_hinam: { bg: '#15803D', fg: '#FFFFFF' },
+  yohananof:  { bg: '#BE185D', fg: '#FFFFFF' },
 };
 
 export interface PurchaseEvent {
