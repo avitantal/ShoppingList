@@ -260,8 +260,8 @@ export function ActiveList({ list }: Props) {
     setDraggingCode(null);
     if (!over || active.id === over.id) return;
     const codes = groups.map(g => g.department.code);
-    const oldIndex = codes.indexOf(active.id as string);
-    const newIndex = codes.indexOf(over.id as string);
+    const oldIndex = codes.indexOf(active.id as DepartmentCode);
+    const newIndex = codes.indexOf(over.id as DepartmentCode);
     if (oldIndex === -1 || newIndex === -1) return;
     reorder(arrayMove(codes, oldIndex, newIndex));
   }
