@@ -7,7 +7,8 @@ import {
   closestCenter,
   useSensor,
   useSensors,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   KeyboardSensor,
   type DragEndEvent,
   type DragStartEvent,
@@ -171,7 +172,8 @@ export function ActiveList({ list }: Props) {
   const { orderMap, reorder } = useDepartmentOrder(list.id, list.department_order);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { delay: 550, tolerance: 8 } }),
+    useSensor(MouseSensor, { activationConstraint: { delay: 550, tolerance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 550, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const [draggingCode, setDraggingCode] = useState<string | null>(null);
