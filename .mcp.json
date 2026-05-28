@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "supermarket-prices": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@skills-il/supermarket-prices-mcp"
+      ]
+    }
+  }
+}
