@@ -16,7 +16,7 @@ Real-time collaborative lists that know the price of everything before you leave
 Items you add are automatically matched against a product catalog synced daily from official XML price feeds — Shufersal, Rami Levy, Yohananof, and more. You see the real shelf price before you even get to the store. The footer shows two running totals: **estimated cost of what's left** + **subtotal for what's already in the cart**.
 
 ### 🏪 Supermarket-style department grouping
-Items auto-sort by department (produce, dairy, bakery…), exactly how a store is laid out. Drag departments into the order *your* store is arranged — it remembers it per list.
+Items auto-sort by department (produce, dairy, bakery…), exactly how a store is laid out. Drag departments into the order *your* store is arranged — the order is saved per list and applied automatically on your next visit.
 
 ### 👨‍👩‍👧 Truly collaborative
 Share a list with your partner or housemates. Changes appear in real time on every device — no refresh needed. Role-based access: owners control sharing, editors just shop.
@@ -27,8 +27,11 @@ Share a list with your partner or housemates. Changes appear in real time on eve
 - Compact `−[n]+` quantity controls that don't crowd the item name
 - Full Hebrew RTL layout throughout
 
-### 🧠 Gets smarter over time
-The first time you link a free-text item to a catalog product, that connection is saved. Next list, the same item is linked automatically — name, barcode, and price filled in instantly.
+### 🧠 Learns your habits
+Two ways the app gets smarter over time:
+
+- **Product memory** — the first time you link a free-text item to a catalog product, that connection is saved. Next list, the same item auto-fills with name, barcode, and price — no searching.
+- **Department order** — drag the departments into the order that matches your store layout. The app remembers it per list, so next time you shop the same route, everything is already sorted the way you walk.
 
 ---
 
@@ -149,7 +152,7 @@ A GitHub Actions cron job fetches XML price feeds published by Israeli chains (a
 כשמוסיפים מוצר, האפליקציה מחפשת אותו אוטומטית בקטלוג המוצרים שמסונכרן מדי יום מקובצי ה-XML הרשמיים של שופרסל, רמי לוי, יוחננוף ועוד. רואים את מחיר המדף האמיתי לפני שמגיעים לחנות. ה-Footer מציג שני סכומים: **סה״כ משוער לשאר הקנייה** + **סה״כ ביניים למה שכבר בעגלה**.
 
 ### 🏪 מיון לפי מחלקות הסופר
-פריטים ממוינים אוטומטית לפי מחלקה (ירקות, מוצרי חלב, מאפייה...) — בדיוק כמו שהחנות בנויה. גוררים את המחלקות לפי הסדר שמתאים לסופר שלכם, ה-app זוכר לכל רשימה.
+פריטים ממוינים אוטומטית לפי מחלקה (ירקות, מוצרי חלב, מאפייה...) — בדיוק כמו שהחנות בנויה. גוררים את המחלקות לפי הסדר שמתאים לסופר שלכם, והסדר נשמר לכל רשימה בנפרד ומיושם אוטומטית בביקור הבא.
 
 ### 👨‍👩‍👧 שיתוף אמיתי
 משתפים רשימה עם בן/בת זוג או בני הבית. שינויים מופיעים בזמן אמת בכל המכשירים. הרשאות לפי תפקיד: בעלים מנהלים שיתוף, עורכים קונים.
@@ -160,8 +163,11 @@ A GitHub Actions cron job fetches XML price feeds published by Israeli chains (a
 - כפתורי כמות קומפקטיים `−[n]+` שלא גוזלים מקום משם המוצר
 - ממשק עברי RTL מלא
 
-### 🧠 מתחכם עם הזמן
-בפעם הראשונה שמקשרים פריט-טקסט למוצר בקטלוג, הקישור נשמר. ברשימה הבאה — הפריט מתמלא אוטומטית עם שם, ברקוד ומחיר.
+### 🧠 לומד את ההרגלים שלכם
+שתי דרכים שבהן האפליקציה מתחכמת עם הזמן:
+
+- **זיכרון מוצרים** — בפעם הראשונה שמקשרים פריט-טקסט למוצר בקטלוג, הקישור נשמר. ברשימה הבאה, הפריט מתמלא אוטומטית עם שם, ברקוד ומחיר — בלי חיפוש.
+- **סדר מחלקות** — גוררים את המחלקות לפי הסדר שמתאים לסופר שלכם, והאפליקציה זוכרת אותו לכל רשימה בנפרד. בקנייה הבאה, הכול כבר ממוין לפי המסלול שאתם הולכים.
 
 ---
 
