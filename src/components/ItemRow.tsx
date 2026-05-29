@@ -135,10 +135,7 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
             {item.unit && <span className="text-xs text-muted shrink-0">{item.unit}</span>}
           </div>
         </div>
-        <div className="shrink-0 flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
-          <div className="min-w-14 text-right text-sm font-semibold tabular-nums text-text [direction:ltr]">
-            {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
-          </div>
+        <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
           {/* Desktop-only department change button — touch uses long-press */}
           {onChangeDepartment && (
             <button
@@ -151,16 +148,22 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
               <Building2 size={13} />
             </button>
           )}
-          <button onClick={dec}
-                  disabled={Number(item.qty) <= 1}
-                  className="btn-ghost w-9 h-9 p-0 disabled:opacity-30"
-                  aria-label="הפחת כמות">
-            <Minus size={14} />
-          </button>
-          <span className="min-w-5 text-center text-sm tabular-nums">{item.qty}</span>
-          <button onClick={inc} className="btn-ghost w-9 h-9 p-0" aria-label="הוסף כמות">
-            <Plus size={14} />
-          </button>
+          {/* Compact qty: -[n]+ */}
+          <div className="flex items-center">
+            <button onClick={dec}
+                    disabled={Number(item.qty) <= 1}
+                    className="btn-ghost w-7 h-7 p-0 disabled:opacity-30"
+                    aria-label="הפחת כמות">
+              <Minus size={12} />
+            </button>
+            <span className="min-w-4 text-center text-xs tabular-nums">{item.qty}</span>
+            <button onClick={inc} className="btn-ghost w-7 h-7 p-0" aria-label="הוסף כמות">
+              <Plus size={12} />
+            </button>
+          </div>
+          <div className="min-w-12 text-right text-sm font-semibold tabular-nums text-text [direction:ltr]">
+            {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
+          </div>
         </div>
       </div>
     </div>
