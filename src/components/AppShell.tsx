@@ -48,7 +48,8 @@ export function AppShell() {
     <div className="min-h-screen flex overflow-x-hidden">
       {drawerOpen && (
         <div className="fixed inset-0 z-40 flex">
-          <ListSidebar activeListId={activeId} onSelect={selectList}
+          <ListSidebar activeListId={activeId} owned={owned} shared={shared} refresh={refresh}
+                       onSelect={selectList}
                        onOpenHistory={() => { setDrawerOpen(false); setHistoryOpen(true); }}
                        onClose={() => setDrawerOpen(false)} />
           <div className="flex-1 bg-black/40" onClick={() => setDrawerOpen(false)} />

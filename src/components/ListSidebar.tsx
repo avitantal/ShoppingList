@@ -1,22 +1,23 @@
 import { useRef, useState } from 'react';
 import { Plus, History, ChevronLeft, Trash2, LogOut, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { useLists } from '../hooks/useLists';
 import { useAuth } from '../hooks/useAuth';
 import { NewListDialog } from './NewListDialog';
-import { db } from '../lib/supabase';
+import { db, type ShoppingList } from '../lib/supabase';
 import { signOut } from '../lib/googleAuth';
 import { cn } from '../lib/utils';
 
 interface Props {
   activeListId: string | null;
+  owned: ShoppingList[];
+  shared: ShoppingList[];
+  refresh: () => Promise<void>;
   onSelect: (id: string) => void;
   onOpenHistory: () => void;
   onClose: () => void;
 }
 
-export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: Props) {
-  const { owned, shared, refresh } = useLists();
+export function ListSidebar({ activeListId, owned, shared, refresh, onSelect, onOpenHistory, onClose }: Props) {
   const { session } = useAuth();
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
