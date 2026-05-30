@@ -13,11 +13,15 @@ jobs:
         id: date
         run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
-      - name: pg_dump
+      - name: Force IPv4 DNS for Supabase host
         run: |
           DB_HOST="db.cddyczwevfpnnbbdilmq.supabase.co"
-          IPV4=$(getent ahostsv4 "$DB_HOST" | awk 'NR==1{print $1}')
-          PGHOSTADDR="$IPV4" pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
+          IPV4=$(dig +short A "$DB_HOST" | grep -E '^[0-9]+\.' | head -1)
+          echo "$IPV4 $DB_HOST" | sudo tee -a /etc/hosts
+
+      - name: pg_dump
+        run: |
+          pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
             --no-owner --no-acl -Fc \
             -f backup-${{ steps.date.outputs.date }}.dump
 
