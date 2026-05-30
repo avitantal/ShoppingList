@@ -13,6 +13,9 @@ jobs:
         id: date
         run: echo "date=$(date +%Y-%m-%d)" >> $GITHUB_OUTPUT
 
+      - name: Disable IPv6
+        run: sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1 net.ipv6.conf.default.disable_ipv6=1
+
       - name: pg_dump
         run: |
           pg_dump "${{ secrets.SUPABASE_DB_URL }}" \
