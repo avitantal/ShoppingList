@@ -82,6 +82,11 @@ export interface SearchProductResult extends Product {
   previously_bought: boolean;
 }
 
+// Chains that currently have prices in the catalog (refresh_catalog.py scrapers).
+// Add a chain here when its scraper is wired up; ChainFilter uses this to dim
+// chains that are registered but not yet providing prices.
+export const ACTIVE_CHAIN_CODES = new Set(['shufersal', 'rami_levy']);
+
 // Brand colors used by the autocomplete chain badge. Keep this in sync with
 // rows in shopping.chains; a missing entry falls back to neutral gray.
 export const CHAIN_BADGE_COLORS: Record<string, { bg: string; fg: string }> = {

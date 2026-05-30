@@ -134,6 +134,11 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
             <span className="truncate">{item.name}</span>
             {item.unit && <span className="text-xs text-muted shrink-0">{item.unit}</span>}
           </div>
+          {hasPrice && (
+            <div className={cn('text-xs tabular-nums mt-0.5 [direction:ltr]', item.is_in_cart ? 'text-emerald-300/60' : 'text-muted/70')}>
+              {formatCompactILS(item.estimated_price)}
+            </div>
+          )}
         </div>
         <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
           {/* Desktop-only department change button — touch uses long-press */}
@@ -160,12 +165,6 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
             <button onClick={inc} className="btn-ghost w-6 h-7 p-0" aria-label="הוסף כמות">
               <Plus size={12} />
             </button>
-          </div>
-          <div className={cn(
-            'text-right text-sm font-semibold tabular-nums [direction:ltr]',
-            hasPrice ? 'min-w-12 text-text' : 'text-muted/50',
-          )}>
-            {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
           </div>
         </div>
       </div>
