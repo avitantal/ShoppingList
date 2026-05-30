@@ -27,6 +27,7 @@ export const db = (supabase as any).schema(SHOPPING_SCHEMA);
 
 export type MemberRole = 'owner' | 'editor';
 export type PurchaseSource = 'manual' | 'auto_inventory';
+export type ListType = 'shopping' | 'checklist' | 'note' | 'log';
 
 export interface ShoppingList {
   id: string;
@@ -37,6 +38,7 @@ export interface ShoppingList {
   created_at: string;
   updated_at: string;
   department_order: DepartmentCode[] | null;
+  list_type: ListType;
 }
 
 export interface ListMember {
