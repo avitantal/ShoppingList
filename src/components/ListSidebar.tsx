@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, History, ChevronLeft, Trash2, LogOut } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Plus, History, ChevronLeft, Trash2, LogOut, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLists } from '../hooks/useLists';
 import { useAuth } from '../hooks/useAuth';
@@ -19,7 +19,25 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
   const { owned, shared, refresh } = useLists();
   const { session } = useAuth();
   const [creating, setCreating] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const editRef = useRef<HTMLInputElement>(null);
   const email = session?.user?.email ?? '';
+
+  function startRename(id: string, name: string) {
+    setEditingId(id);
+    setEditName(name);
+    setTimeout(() => editRef.current?.select(), 0);
+  }
+
+  async function commitRename(id: string) {
+    const name = editName.trim();
+    setEditingId(null);
+    if (!name) return;
+    const { error } = await db.from('shopping_lists').update({ name }).eq('id', id);
+    if (error) toast.error(error.message);
+    else void refresh();
+  }
 
   async function archive(listId: string, name: string) {
     if (!window.confirm(`למחוק את "${name}"?`)) return;
@@ -45,17 +63,40 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
           <ul>
             {owned.map(l => (
               <li key={l.id} className="group flex items-center gap-1">
-                <button className={cn('flex-1 text-right px-3 py-2 rounded-lg text-sm',
-                                      activeListId === l.id ? 'bg-accent text-white' : 'hover:bg-bg')}
-                        onClick={() => onSelect(l.id)}>
-                  {l.name}{l.is_default && <span className="text-xs text-muted mr-2">(ברירת מחדל)</span>}
-                </button>
-                {!l.is_default && (
-                  <button onClick={() => void archive(l.id, l.name)}
-                          className="btn-ghost p-1.5 text-muted hover:text-red-400 opacity-60 hover:opacity-100"
-                          aria-label={`מחק את ${l.name}`}>
-                    <Trash2 size={14} />
+                {editingId === l.id ? (
+                  <input
+                    ref={editRef}
+                    className="flex-1 px-3 py-2 rounded-lg text-sm bg-bg border border-accent outline-none"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={() => void commitRename(l.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') { e.preventDefault(); void commitRename(l.id); }
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                  />
+                ) : (
+                  <button className={cn('flex-1 text-right px-3 py-2 rounded-lg text-sm',
+                                        activeListId === l.id ? 'bg-accent text-white' : 'hover:bg-bg')}
+                          onClick={() => onSelect(l.id)}>
+                    {l.name}{l.is_default && <span className="text-xs text-muted mr-2">(ברירת מחדל)</span>}
                   </button>
+                )}
+                {editingId !== l.id && (
+                  <>
+                    <button onClick={() => startRename(l.id, l.name)}
+                            className="btn-ghost p-1.5 text-muted opacity-0 group-hover:opacity-60 hover:!opacity-100"
+                            aria-label={`שנה שם ${l.name}`}>
+                      <Pencil size={13} />
+                    </button>
+                    {!l.is_default && (
+                      <button onClick={() => void archive(l.id, l.name)}
+                              className="btn-ghost p-1.5 text-muted hover:text-red-400 opacity-0 group-hover:opacity-60 hover:!opacity-100"
+                              aria-label={`מחק את ${l.name}`}>
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </>
                 )}
               </li>
             ))}
@@ -97,7 +138,7 @@ export function ListSidebar({ activeListId, onSelect, onOpenHistory, onClose }: 
       </div>
       {creating && (
         <NewListDialog onClose={() => setCreating(false)}
-                       onCreated={(id) => { setCreating(false); void refresh(); onSelect(id); }} />
+                       onCreated={(id) => { setCreating(false); void refresh().then(() => onSelect(id)); }} />
       )}
     </aside>
   );
