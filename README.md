@@ -3,7 +3,7 @@
 **The smartest shopping list for Israeli supermarkets.**  
 Real-time collaborative lists that know the price of everything before you leave home.
 
-[![Version](https://img.shields.io/badge/version-0.25.1-6366f1?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/version-0.26.0-6366f1?style=flat-square)](package.json)
 [![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-realtime-3ecf8e?style=flat-square&logo=supabase)](https://supabase.com)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?style=flat-square&logo=typescript)](https://typescriptlang.org)
@@ -31,7 +31,7 @@ Share a list with your partner or housemates. Changes appear in real time on eve
 Two ways the app gets smarter over time:
 
 - **Product memory** — the first time you link a free-text item to a catalog product, that connection is saved. Next list, the same item auto-fills with name, barcode, and price — no searching.
-- **Department order** — drag the departments into the order that matches your store layout. The app remembers it per list, so next time you shop the same route, everything is already sorted the way you walk.
+- **Department order** — drag departments to match your store's layout. The app also *learns automatically*: after a few checkouts it analyses the order you check off items and suggests reordering the sections to match your real walking route. One tap to accept.
 
 ---
 
@@ -167,7 +167,7 @@ A GitHub Actions cron job fetches XML price feeds published by Israeli chains (a
 שתי דרכים שבהן האפליקציה מתחכמת עם הזמן:
 
 - **זיכרון מוצרים** — בפעם הראשונה שמקשרים פריט-טקסט למוצר בקטלוג, הקישור נשמר. ברשימה הבאה, הפריט מתמלא אוטומטית עם שם, ברקוד ומחיר — בלי חיפוש.
-- **סדר מחלקות** — גוררים את המחלקות לפי הסדר שמתאים לסופר שלכם, והאפליקציה זוכרת אותו לכל רשימה בנפרד. בקנייה הבאה, הכול כבר ממוין לפי המסלול שאתם הולכים.
+- **סדר מחלקות** — גוררים את המחלקות לפי הסדר שמתאים לסופר שלכם. האפליקציה גם **לומדת אוטומטית**: לאחר כמה קניות היא מנתחת את הסדר שבו סימנתם מוצרים ומציעה לעדכן את סדר המחלקות בהתאם למסלול האמיתי שלכם בחנות. לחיצה אחת לאישור.
 
 ---
 

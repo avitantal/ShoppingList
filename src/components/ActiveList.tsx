@@ -37,8 +37,14 @@ import { ChangeDepartmentSheet } from './ChangeDepartmentSheet';
 import { getProductLinkDefault, saveProductLinkDefault } from '../lib/productLinkDefaults';
 import { groupByDepartment, getDepartmentForItem } from '../lib/departmentLookup';
 import { db, type ListItem, type SearchProductResult, type ShoppingList } from '../lib/supabase';
+import { DEPARTMENTS, DEPARTMENT_CODES } from '../lib/departments';
 import type { DepartmentCode } from '../lib/departments';
 import type { DepartmentGroup } from '../lib/departmentLookup';
+import {
+  extractRoute, appendRoute, getStoredRoutes, suggestOrder,
+  isSuggestionSuppressed, recordDecline, resetDecline,
+} from '../lib/routeSuggestion';
+import { RouteSuggestionDialog } from './RouteSuggestionDialog';
 
 interface SortableGroupProps {
   group: DepartmentGroup;
@@ -106,6 +112,8 @@ export function ActiveList({ list }: Props) {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [linkingItemId, setLinkingItemId] = useState<string | null>(null);
   const [editingDeptItemId, setEditingDeptItemId] = useState<string | null>(null);
+  const [suggestedOrder, setSuggestedOrder] = useState<DepartmentCode[] | null>(null);
+  const checkedDeptRef = useRef<DepartmentCode[]>([]);
   // Bumps to force a re-fetch / re-render of the catalog index after a
   // manual department override is written via RPC.
   const [catalogBust, setCatalogBust] = useState(0);
@@ -268,6 +276,27 @@ export function ActiveList({ list }: Props) {
     reorder(arrayMove(codes, oldIndex, newIndex));
   }
 
+  function handleToggle(id: string, inCart: boolean) {
+    if (inCart) {
+      const item = items.find(i => i.id === id);
+      if (item) checkedDeptRef.current.push(getDepartmentForItem(item, catalog, nameOverrides));
+    }
+    void setInCart(id, inCart);
+  }
+
+  function buildCurrentOrder(): DepartmentCode[] {
+    const explicit = [...orderMap.entries()]
+      .filter(([c]) => c !== DEPARTMENT_CODES.UNCLASSIFIED)
+      .sort((a, b) => a[1] - b[1])
+      .map(([c]) => c);
+    const explicitSet = new Set(explicit);
+    const remaining = DEPARTMENTS
+      .filter(d => d.code !== DEPARTMENT_CODES.UNCLASSIFIED && !explicitSet.has(d.code as DepartmentCode))
+      .sort((a, b) => a.order - b.order)
+      .map(d => d.code as DepartmentCode);
+    return [...explicit, ...remaining];
+  }
+
   return (
     <div className="flex flex-col h-full">
       <AddItemInput
@@ -315,7 +344,7 @@ export function ActiveList({ list }: Props) {
                   group={g}
                   collapsed={collapsed.has(g.department.code)}
                   onToggle={() => toggleCollapsed(g.department.code)}
-                  onSetInCart={(id, val) => setInCart(id, val)}
+                  onSetInCart={(id, val) => handleToggle(id, val)}
                   onQtyChange={(id, qty) => updateItem(id, { qty })}
                   onDelete={deleteWithUndo}
                   onOpenLink={openLink}
@@ -347,7 +376,23 @@ export function ActiveList({ list }: Props) {
         <CheckoutDialog listId={list.id}
                         cartItems={items.filter(i => i.is_in_cart)}
                         onClose={() => setCheckoutOpen(false)}
-                        onDone={() => { setCheckoutOpen(false); void refresh(); }} />
+                        onDone={() => {
+                          setCheckoutOpen(false);
+                          // If the user opened the app with items already in cart (from a
+                          // previous session), the ref will be empty. Fall back to the cart
+                          // items in their current display order so the route is still recorded.
+                          const raw = checkedDeptRef.current.length > 0
+                            ? checkedDeptRef.current
+                            : items.filter(i => i.is_in_cart).map(i => getDepartmentForItem(i, catalog, nameOverrides));
+                          const sequence = extractRoute(raw);
+                          checkedDeptRef.current = [];
+                          appendRoute(list.id, sequence);
+                          void refresh();
+                          if (!isSuggestionSuppressed(list.id)) {
+                            const suggestion = suggestOrder(getStoredRoutes(list.id), buildCurrentOrder(), DEPARTMENTS);
+                            if (suggestion) setSuggestedOrder(suggestion);
+                          }
+                        }} />
       )}
       {linkingItem && (
         <LinkItemDialog initialQuery={linkingItem.name}
@@ -376,6 +421,21 @@ export function ActiveList({ list }: Props) {
             void applyDepartmentOverride(editingDeptItem, code);
             setEditingDeptItemId(null);
           }}
+        />
+      )}
+      {suggestedOrder && (
+        <RouteSuggestionDialog
+          suggested={suggestedOrder}
+          onAccept={() => {
+            resetDecline(list.id);
+            void reorder(suggestedOrder);
+            setSuggestedOrder(null);
+          }}
+          onDecline={() => {
+            recordDecline(list.id);
+            setSuggestedOrder(null);
+          }}
+          onDismiss={() => setSuggestedOrder(null)}
         />
       )}
     </div>

@@ -152,16 +152,19 @@ export function ItemRow({ item, onToggle, onQtyChange, onDelete, onOpenLink, onC
           <div className="flex items-center">
             <button onClick={dec}
                     disabled={Number(item.qty) <= 1}
-                    className="btn-ghost w-7 h-7 p-0 disabled:opacity-30"
+                    className="btn-ghost w-6 h-7 p-0 disabled:opacity-30"
                     aria-label="הפחת כמות">
               <Minus size={12} />
             </button>
             <span className="min-w-4 text-center text-xs tabular-nums">{item.qty}</span>
-            <button onClick={inc} className="btn-ghost w-7 h-7 p-0" aria-label="הוסף כמות">
+            <button onClick={inc} className="btn-ghost w-6 h-7 p-0" aria-label="הוסף כמות">
               <Plus size={12} />
             </button>
           </div>
-          <div className="min-w-12 text-right text-sm font-semibold tabular-nums text-text [direction:ltr]">
+          <div className={cn(
+            'text-right text-sm font-semibold tabular-nums [direction:ltr]',
+            hasPrice ? 'min-w-12 text-text' : 'text-muted/50',
+          )}>
             {hasPrice ? formatCompactILS(item.estimated_price) : '—'}
           </div>
         </div>
