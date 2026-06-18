@@ -49,7 +49,7 @@ export function NoteView({ list }: Props) {
     <div className="flex flex-col h-full p-3">
       <textarea
         autoFocus
-        className="flex-1 w-full resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted/50"
+        className="flex-1 min-h-0 w-full resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-muted/50"
         placeholder="כתוב כאן..."
         value={text}
         onChange={e => handleChange(e.target.value)}

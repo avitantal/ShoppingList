@@ -32,7 +32,7 @@ export function ChecklistView({ list }: Props) {
   return (
     <div className="flex flex-col h-full">
       <SimpleAddInput placeholder="הוסף משימה..." onAdd={name => void addItem(name)} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {unchecked.length === 0 && checked.length === 0 && (
           <div className="text-center text-muted p-8 text-sm">הרשימה ריקה — הוסף משימה ראשונה</div>
         )}

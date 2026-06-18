@@ -49,7 +49,7 @@ export function LogView({ list }: Props) {
   return (
     <div className="flex flex-col h-full">
       <SimpleAddInput placeholder="הוסף רשומה..." onAdd={text => void addItem(text)} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {sorted.length === 0 && (
           <div className="text-center text-muted p-8 text-sm">אין רשומות עדיין</div>
         )}

@@ -45,7 +45,7 @@ export function AppShell() {
   const isOwner = !!owned.find(l => l.id === activeId);
 
   return (
-    <div className="min-h-screen flex overflow-x-hidden">
+    <div className="h-screen flex overflow-x-hidden">
       {drawerOpen && (
         <div className="fixed inset-0 z-40 flex">
           <ListSidebar activeListId={activeId} owned={owned} shared={shared} refresh={refresh}
