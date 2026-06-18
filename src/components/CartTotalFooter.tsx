@@ -21,7 +21,7 @@ export function CartTotalFooter({ items }: Props) {
   const missingLabel = missing === 1 ? 'פריט אחד ללא מחיר' : `${missing} פריטים ללא מחיר`;
 
   return (
-    <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-surface border-t border-border text-sm">
+    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-surface border-t border-border text-sm">
       <div className="flex flex-col gap-0.5">
         {checkedPriced.length > 0 && (
           <span className="font-semibold text-emerald-400">סה״כ בסל: ₪{cartSubtotal.toFixed(2)}</span>

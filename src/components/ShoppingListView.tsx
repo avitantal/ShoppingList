@@ -354,8 +354,8 @@ export function ShoppingListView({ list }: Props) {
             </DragOverlay>
           </DndContext>
         )}
-        <CartTotalFooter items={items} />
       </div>
+      <CartTotalFooter items={items} />
       {cartCount > 0 && (
         <div className="p-3 bg-surface border-t border-border sticky bottom-0">
           <button className="btn-primary w-full py-3 gap-2"
