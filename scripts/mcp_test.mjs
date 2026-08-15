@@ -67,6 +67,25 @@ test('protected-resource metadata served', async () => {
     j.authorization_servers?.[0] === `${SUPABASE_URL}/auth/v1`, JSON.stringify(j));
 });
 
+// ---- Task 3 ----
+
+test('garbage token → 401', async () => {
+  const r = await rpc('garbage.token.here', 'initialize');
+  check('garbage token rejected', r.status === 401, `got ${r.status}`);
+});
+
+test('anon key as Bearer → 401 (wrong role)', async () => {
+  const r = await rpc(ANON, 'initialize');
+  check('anon key rejected', r.status === 401, `got ${r.status}`);
+});
+
+test('valid user token → initialize succeeds', async () => {
+  const t = await login(USER_A);
+  const r = await rpc(t, 'initialize');
+  check('initialize 200', r.status === 200, `got ${r.status}`);
+  check('protocolVersion present', !!r.body?.result?.protocolVersion, JSON.stringify(r.body));
+});
+
 for (const [name, fn] of tests) {
   try { await fn(); } catch (e) { check(name, false, e.message); }
 }
