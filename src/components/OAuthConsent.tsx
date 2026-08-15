@@ -14,11 +14,18 @@ function hostOf(raw: string): string {
   try { return new URL(raw).hostname; } catch { return '(כתובת לא תקינה)'; }
 }
 
+function isTrustedHost(raw: string): boolean {
+  try {
+    const { hostname } = new URL(raw);
+    return EXPECTED_HOSTS.some((h) => hostname === h || hostname.endsWith('.' + h));
+  } catch { return false; }
+}
+
 export function OAuthConsent({ authorizationId }: { authorizationId: string }) {
   const { session, loading } = useAuth();
-  const [details, setDetails] = useState<{ clientName: string; redirectHost: string } | null>(null);
+  const [details, setDetails] =
+    useState<{ clientName: string; redirectHost: string; hostTrusted: boolean } | null>(null);
   const [pendingUrl, setPendingUrl] = useState<string | null>(null);
-  const [warnUrl, setWarnUrl] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const framed = window.top !== window.self;
@@ -34,12 +41,20 @@ export function OAuthConsent({ authorizationId }: { authorizationId: string }) {
         // Previously approved — still requires an explicit click, never auto-navigate.
         const url = (data as { redirect_url: string }).redirect_url;
         setPendingUrl(url);
-        setDetails({ clientName: 'אפליקציה שאושרה בעבר', redirectHost: hostOf(url) });
+        setDetails({
+          clientName: 'אפליקציה שאושרה בעבר',
+          redirectHost: hostOf(url),
+          hostTrusted: isTrustedHost(url),
+        });
         return;
       }
+      const redirectUri = data.redirect_uri ?? '';
       setDetails({
         clientName: data.client?.name ?? 'אפליקציה לא מזוהה',
-        redirectHost: hostOf(data.redirect_uri ?? ''),
+        redirectHost: hostOf(redirectUri),
+        // Judged BEFORE approval: the grant must never exist before the user
+        // has seen — and accepted — where they will be sent.
+        hostTrusted: isTrustedHost(redirectUri),
       });
     });
   }, [session, authorizationId, framed]);
@@ -48,16 +63,13 @@ export function OAuthConsent({ authorizationId }: { authorizationId: string }) {
     sessionStorage.removeItem(AUTHZ_STORAGE_KEY);
   }
 
-  /** https-only, explicit navigation, unknown hosts require confirmation. */
+  /** Last line of defense: https-only (localhost in dev), explicit navigation.
+   *  Host trust is decided earlier, before the grant is issued. */
   function safeRedirect(raw: string): boolean {
     let u: URL;
     try { u = new URL(raw); } catch { return false; }
     const devOk = u.protocol === 'http:' && u.hostname === 'localhost';
     if (u.protocol !== 'https:' && !devOk) return false;
-    if (!EXPECTED_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith('.' + h))) {
-      setWarnUrl(u.href);
-      return true;
-    }
     finish();
     window.location.assign(u.href);
     return true;
@@ -103,25 +115,6 @@ export function OAuthConsent({ authorizationId }: { authorizationId: string }) {
       </div>
     );
   }
-  if (warnUrl) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="card max-w-sm p-6 space-y-4 text-center">
-          <p className="text-sm">
-            ⚠️ האפליקציה מבקשת להחזיר אותך לכתובת לא מוכרת:{' '}
-            <b dir="ltr">{hostOf(warnUrl)}</b>
-          </p>
-          <button className="btn-primary w-full justify-center" onClick={abandon}>בטל</button>
-          <button
-            className="btn-ghost w-full justify-center text-sm"
-            onClick={() => { finish(); window.location.assign(warnUrl); }}
-          >
-            המשך בכל זאת
-          </button>
-        </div>
-      </div>
-    );
-  }
   if (pendingUrl && details) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -148,18 +141,39 @@ export function OAuthConsent({ authorizationId }: { authorizationId: string }) {
         <div className="text-sm space-y-1">
           <p><span className="text-muted">אפליקציה:</span> {details.clientName}</p>
           <p><span className="text-muted">תוחזר אל:</span> <b dir="ltr">{details.redirectHost}</b></p>
+          {!details.hostTrusted && (
+            <p className="text-red-400 pt-2">
+              ⚠️ כתובת ההחזרה אינה של Claude. אם לא יזמת את הבקשה הזו — דחה אותה.
+            </p>
+          )}
           <p className="text-muted pt-2">
-            האפליקציה תוכל, בשמך: לצפות ברשימות ובפריטים, להוסיף פריטים, ולסמן פריטים בעגלה.
-            היא לא תוכל למחוק פריטים או רשימות.
+            האפליקציה תשתמש בכלים: צפייה ברשימות ובפריטים, הוספת פריט, וסימון פריט בעגלה.
+          </p>
+          <p className="text-muted">
+            שים לב: ההרשאה הניתנת היא של חשבונך המלא באפליקציה ואינה מוגבלת טכנית לכלים
+            האלה. אשר רק אפליקציות שאתה סומך עליהן.
           </p>
         </div>
         <div className="space-y-2">
-          <button className="btn-primary w-full justify-center py-3" disabled={busy} onClick={() => void decide(true)}>
-            {busy ? <Loader2 className="animate-spin" size={16} /> : 'אשר גישה'}
-          </button>
-          <button className="btn-ghost w-full justify-center text-sm" disabled={busy} onClick={() => void decide(false)}>
-            דחה
-          </button>
+          {details.hostTrusted ? (
+            <>
+              <button className="btn-primary w-full justify-center py-3" disabled={busy} onClick={() => void decide(true)}>
+                {busy ? <Loader2 className="animate-spin" size={16} /> : 'אשר גישה'}
+              </button>
+              <button className="btn-ghost w-full justify-center text-sm" disabled={busy} onClick={() => void decide(false)}>
+                דחה
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn-primary w-full justify-center py-3" disabled={busy} onClick={() => void decide(false)}>
+                {busy ? <Loader2 className="animate-spin" size={16} /> : 'דחה את הבקשה'}
+              </button>
+              <button className="btn-ghost w-full justify-center text-sm" disabled={busy} onClick={() => void decide(true)}>
+                אשר בכל זאת
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

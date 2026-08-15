@@ -132,7 +132,8 @@ async function getListItems(db: SupabaseClient, args: Record<string, unknown>) {
   const rows = items.map((i) => ({
     id: i.id,
     name: wrapUntrusted(i.name),
-    qty: i.qty, unit: i.unit,
+    qty: i.qty,
+    unit: i.unit ? wrapUntrusted(i.unit) : null,
     notes: i.notes ? wrapUntrusted(i.notes) : null,
     in_cart: i.is_in_cart,
     department: i.barcode ? (deptByBarcode.get(i.barcode) ?? null) : null,

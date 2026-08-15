@@ -47,12 +47,11 @@ JWKS_URL      = https://xgihixrhosbxyloeoxnv.supabase.co/auth/v1/.well-known/jwk
 
 ### Task 1: Test harness skeleton
 
-Two test users **already exist** and their credentials are in `.env.local`
-(gitignored): `E2E_USER_A_EMAIL/PASSWORD` (`avitantal+lokitest@gmail.com`,
-uid `d9b3cd5d-3a82-499a-b17e-329b422721dc`) and `E2E_USER_B_EMAIL/PASSWORD`
-(`avitantal+lokib@gmail.com`, uid `e01e7828-a108-4502-a695-f950f8e741e3`).
-No user creation needed; nothing to clean up afterwards. The harness loads
-`.env.local` itself — never hardcode credentials in the script.
+Two test users **already exist**; their addresses and passwords live in
+`.env.local` (gitignored) as `E2E_USER_A_EMAIL/PASSWORD` and
+`E2E_USER_B_EMAIL/PASSWORD`. No user creation needed and nothing to clean up
+afterwards. The harness reads `.env.local` itself — never hardcode credentials
+or account identifiers into the script or into this document.
 
 **Files:**
 - Create: `scripts/mcp_test.mjs`

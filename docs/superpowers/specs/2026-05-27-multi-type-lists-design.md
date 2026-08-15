@@ -47,17 +47,7 @@ Existing lists automatically receive `list_type = 'shopping'`.
 | note | Single row — `name` holds the full textarea text blob |
 | log | `name` holds the entry text. `created_at` is the immutable timestamp |
 
-### 3.3 Type conversion RPC
-
-```sql
-shopping.change_list_type(p_list_id uuid, p_new_type shopping.list_type)
-```
-
-- Any → any: updates `list_type`, no data migration.
-- `note` → any other type: splits the single text row by non-empty `\n` lines into individual `list_items` rows, then deletes the original blob row.
-- Exposed to authenticated users (owner/editor via existing RLS).
-
-### 3.4 New list creation
+### 3.3 New list creation
 
 `NewListDialog` inserts directly into `shopping.shopping_lists` with the chosen `list_type`. No new RPC needed — the existing insert RLS policy allows authenticated owners to insert.
 
@@ -155,7 +145,7 @@ All four types support sharing via the existing `list_members` infrastructure. N
 
 ## 9. Out of Scope
 
-- Type conversion UI (button/menu to change type after creation) — can be added as a follow-up.
+- Type conversion (changing a list's type after creation) — removed from scope entirely.
 - Per-type icons in the sidebar — can be added as visual polish.
 - Log entry categories (e.g., car / home / health) — explicit user decision: free text only.
 - Rich text formatting in Note type.

@@ -1,7 +1,10 @@
 # MCP Connector for Shopping Lists — Design
 
 **Date:** 2026-08-15
-**Status:** Security-reviewed (Eli, 2026-08-15) — findings folded in; pending user approval
+**Status:** Implemented and security-reviewed twice (Eli: design + post-implementation,
+2026-08-15). Connector code approved. Two pre-existing, project-wide issues found in the
+second review remain open — see "Open issues" at the end. Not yet enabled: the OAuth 2.1
+server is still off in the dashboard.
 
 ## Problem
 
@@ -219,3 +222,80 @@ this migration).
   UI version label (per user preference).
 - Dashboard (manual, documented in the plan): enable OAuth server (DCR stays
   **off**), pre-register the Claude OAuth client, set Authorization Path.
+
+---
+
+## Post-implementation review (Eli, 2026-08-15) — outcome
+
+Findings 1-3 from the design review were re-verified as genuinely closed against
+the live database (impersonation as a real user with zero lists: `ingest_batch`
+and the three ingestion tables blocked with 42501; `v_list_participants`
+returned 0 rows and 0 emails). `participant_email` was scrutinised as a possible
+new leak path and cleared — it returns non-NULL only for the caller or a genuine
+co-member, and needs an unguessable UUID. `ShareDialog` still works for real
+users. The connector's own implementation requirements (findings 5-10) were
+confirmed present and effective in code, not merely commented.
+
+### Fixed in response to the second review
+
+- **Anonymous identities rejected** (`auth.ts`). Anonymous sign-ups carry
+  `role === 'authenticated'`, so the role check alone let any stranger holding
+  the public anon key mint a token this endpoint served. Now
+  `is_anonymous === true` is a hard reject. Proven by a test that creates a real
+  anonymous token, asserts its claims, and asserts the connector returns 401.
+- **Consent screen no longer overstates the sandbox.** It previously claimed the
+  app "cannot delete items or lists". That was false: the token is a full app
+  identity (finding 4) and can reach PostgREST directly — including, on this
+  shared project, ProjectsManagerWeb's tables. The text now says the grant is
+  the account's full permissions and is not technically limited to the tools.
+- **Redirect host judged before the grant is issued.** Approval previously ran
+  first and validation second, so an unknown-host warning appeared only after a
+  grant already existed server-side. The host is now evaluated from
+  `redirect_uri` at load time; an untrusted host renders a red warning with
+  "reject" as the primary action. `safeRedirect` remains as an https-only second
+  line of defense. (This was low-risk while DCR is off; it is a prerequisite for
+  ever turning DCR on.)
+- **Dependencies pinned** — `deno.json` floated on major versions, putting an
+  unreviewed `jose` release on the JWT verification path at cold start.
+- **`unit` wrapped** in `get_list_items` output; it was the one user-derived
+  field escaping the untrusted-data delimiters.
+- **Test suite tightened.** The `anon key as Bearer` test never exercised the
+  role check (the anon key dies at signature verification), so deleting the role
+  line would have left the suite green. Added a genuine anonymous-token test and
+  a delimiter-breakout test; removed vacuous assertions that passed on HTTP 500
+  or on an empty array. Suite is now 30 assertions, all passing.
+
+### Open issues — pre-existing, project-wide, NOT introduced by the connector
+
+1. **`shopping.set_department_override` lets any authenticated user rewrite the
+   global product→department mapping** (`SECURITY DEFINER`, checks only that
+   `auth.uid()` is not null, `on conflict (barcode) do update`). Verified live.
+   The app uses this for a real user feature (`ShoppingListView.tsx`), so the
+   fix is a product decision, not a mechanical one: restrict to `app_admins`
+   (removes the feature for normal users) or convert to per-user overrides
+   (preserves it; more work). Until then, any signed-up user can degrade
+   category sorting and smart-route for everyone.
+2. **Anonymous sign-ins are enabled** at the project level and the app never
+   uses them (`signInAnonymously` appears nowhere in `src/`). They should be
+   turned off in the dashboard; the connector already rejects them, but they
+   remain a free path to an `authenticated` role for the rest of the project.
+   Note: while enabled, each run of the test suite creates one anonymous user;
+   once disabled, the test takes its self-reporting "path closed" branch.
+3. **Catalog tables still carry INSERT/UPDATE/DELETE grants to `authenticated`**
+   (`products`, `product_prices`, `product_departments`, `chains`,
+   `refresh_log`, `app_admins`). Harmless today — no permissive policy exists,
+   so writes affect 0 rows — but one careless `for all using (true)` away from
+   catalog poisoning. Migration 0020's default-privilege change only covers
+   tables created in future.
+4. **No auth-failure logging** on a public `verify_jwt=false` endpoint: no
+   signal for probing or credential stuffing.
+
+### Must verify once the OAuth server is enabled
+
+Every test to date used ordinary Google-login session JWTs. OAuth-server-issued
+access tokens have never existed on this project. The auth gate assumes they
+carry `aud: authenticated`, `role: authenticated`, and
+`iss: https://<ref>.supabase.co/auth/v1`. If the OAuth server instead sets `aud`
+to the client_id or a resource indicator (RFC 8707), verification fails closed —
+the connector simply will not work, which is the safe direction, but decode the
+first real token and confirm before debugging blind.
