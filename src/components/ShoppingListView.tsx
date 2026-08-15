@@ -240,19 +240,20 @@ export function ShoppingListView({ list }: Props) {
   }
 
   async function applyDepartmentOverride(item: ListItem, code: DepartmentCode) {
+    // The barcode→department map is shared by every user, so only admins may
+    // write it. For everyone else the RPC is rejected and we fall back to the
+    // per-device override, which produces the same result for this user.
     if (item.barcode) {
       const { error } = await db.rpc('set_department_override', {
         p_barcode: item.barcode,
         p_department_code: code,
       });
-      if (error) {
-        toast.error('שמירת המחלקה נכשלה');
+      if (!error) {
+        setCatalogBust((n) => n + 1);
         return;
       }
-      setCatalogBust((n) => n + 1);
-    } else {
-      setNameOverride(item.name, code);
     }
+    setNameOverride(item.name, code);
   }
 
   function handleDragStart({ active }: DragStartEvent) {

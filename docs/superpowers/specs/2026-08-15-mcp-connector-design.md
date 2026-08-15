@@ -267,14 +267,18 @@ confirmed present and effective in code, not merely commented.
 
 ### Open issues — pre-existing, project-wide, NOT introduced by the connector
 
-1. **`shopping.set_department_override` lets any authenticated user rewrite the
-   global product→department mapping** (`SECURITY DEFINER`, checks only that
-   `auth.uid()` is not null, `on conflict (barcode) do update`). Verified live.
-   The app uses this for a real user feature (`ShoppingListView.tsx`), so the
-   fix is a product decision, not a mechanical one: restrict to `app_admins`
-   (removes the feature for normal users) or convert to per-user overrides
-   (preserves it; more work). Until then, any signed-up user can degrade
-   category sorting and smart-route for everyone.
+1. ~~**`shopping.set_department_override` lets any authenticated user rewrite
+   the global product→department mapping.**~~ **RESOLVED — migration 0021.**
+   Restricted to `app_admins` (the gate `refresh_products_now` already used)
+   plus an explicit anonymous-identity reject. No feature was lost: the app
+   now falls back to the pre-existing per-device name override when the RPC is
+   refused, so a non-admin still sees the item in the department they chose —
+   the change is that their choice no longer rewrites the shared catalog for
+   every other user. Chosen over a new per-user table because only 1 of 17,823
+   department rows was ever `manual`; a table for that is unwarranted.
+   Verified live: a real non-admin user is blocked, the admin still succeeds.
+   To grant it to another member:
+   `insert into shopping.app_admins (user_id) values ('<uuid>');`
 2. **Anonymous sign-ins are enabled** at the project level and the app never
    uses them (`signInAnonymously` appears nowhere in `src/`). They should be
    turned off in the dashboard; the connector already rejects them, but they
