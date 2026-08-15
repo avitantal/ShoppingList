@@ -72,8 +72,9 @@ Claude  ──MCP over HTTP──▶  Edge Function: mcp-shopping
    אימות: `https://<ref>.supabase.co/.well-known/oauth-authorization-server/auth/v1`
    מחזיר JSON ולא `feature_disabled`.
 3. **Authentication → OAuth Apps → Add a new client:** שם `Claude`, סוג
-   `Public`, ו-Redirect URI המדויק שמופיע במסך הוספת הקונקטור ב-Claude
-   (התאמה מלאה, בלי wildcards). שמור את ה-Client ID לטבלה שלמטה.
+   `Public`, Redirect URIs `https://claude.ai/api/mcp/auth_callback`
+   (ו-`https://claude.com/api/mcp/auth_callback`). התאמה מלאה, בלי wildcards.
+   ה-Client ID שמתקבל נרשם בטבלה למטה. **בוצע 2026-08-15.**
 
 ### קבועים
 
@@ -82,7 +83,7 @@ Claude  ──MCP over HTTP──▶  Edge Function: mcp-shopping
 | Project ref | `xgihixrhosbxyloeoxnv` |
 | Function URL | `https://xgihixrhosbxyloeoxnv.supabase.co/functions/v1/mcp-shopping` |
 | OAuth issuer | `https://xgihixrhosbxyloeoxnv.supabase.co/auth/v1` |
-| Client ID | _(מולא לאחר רישום הקליינט ב-Dashboard)_ |
+| Client ID | `65020952-c56e-4828-9d35-e0778a8eb3bc` (public client — לא סוד) |
 
 ### אינווריאנטים אבטחתיים — אל תשבור אותם
 
