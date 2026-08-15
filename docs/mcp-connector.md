@@ -59,6 +59,22 @@ Claude  ──MCP over HTTP──▶  Edge Function: mcp-shopping
 - **בדיקות:** `node scripts/mcp_test.mjs` — 30 בדיקות מול הפונקציה החיה, כולל
   בידוד בין משתמשים ודחיית טוקן אנונימי. דורש `.env.local`.
 
+### הפעלה ראשונית (חד-פעמי, בדשבורד)
+
+הקוד פרוס ונבדק, אבל הקונקטור לא יעבוד עד שהצעדים האלה יבוצעו. סדר הצעדים
+מחייב — אי אפשר לרשום קליינט לפני שהשרת מופעל.
+
+1. **Authentication → Providers → Anonymous sign-ins → כבה.** האפליקציה לא
+   משתמשת בזה; כל עוד זה פעיל, כל אחד יכול לייצר חשבון בלי פרטים.
+2. **Authentication → OAuth Server → הפעל.** Dynamic client registration נשאר
+   **כבוי** (ראה אינווריאנט 8). Authorization Path = `/`, ו-Site URL תחת
+   URL Configuration צריך להיות `https://avitantal.github.io/ShoppingList/`.
+   אימות: `https://<ref>.supabase.co/.well-known/oauth-authorization-server/auth/v1`
+   מחזיר JSON ולא `feature_disabled`.
+3. **Authentication → OAuth Apps → Add a new client:** שם `Claude`, סוג
+   `Public`, ו-Redirect URI המדויק שמופיע במסך הוספת הקונקטור ב-Claude
+   (התאמה מלאה, בלי wildcards). שמור את ה-Client ID לטבלה שלמטה.
+
 ### קבועים
 
 | | |
