@@ -186,8 +186,18 @@ async function addItem(db: SupabaseClient, _claims: UserClaims, args: Record<str
     },
   }));
 }
-async function setItemInCart(_db: SupabaseClient, _args: Record<string, unknown>) {
-  return toolError('טרם מומש');
+async function setItemInCart(db: SupabaseClient, args: Record<string, unknown>) {
+  const itemId = String(args.item_id ?? '');
+  if (!UUID_RE.test(itemId)) return toolError('item_id לא תקין');
+  const inCart = Boolean(args.in_cart);
+  const { data, error } = await db
+    .from('list_items')
+    .update({ is_in_cart: inCart })   // hardcoded projection — only this column, ever
+    .eq('id', itemId)
+    .select('id');
+  if (error) return toolError();
+  if (!data?.length) return toolError('הפריט לא נמצא או שאין לך גישה אליו');
+  return toolOk(JSON.stringify({ updated: itemId, in_cart: inCart }));
 }
 
 export async function callTool(

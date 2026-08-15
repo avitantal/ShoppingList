@@ -144,6 +144,24 @@ test('add_item adds to own list', async () => {
     items.body.result.content[0].text);
 });
 
+// ---- Task 6 ----
+
+test('set_item_in_cart toggles', async () => {
+  const t = await login(USER_A);
+  await ensureListFor(t);
+  const lists = await rpc(t, 'tools/call', { name: 'get_lists', arguments: {} });
+  const listId = JSON.parse(lists.body.result.content[0].text).lists[0].id;
+  const items = await rpc(t, 'tools/call', { name: 'get_list_items', arguments: { list_id: listId } });
+  const itemId = JSON.parse(items.body.result.content[0].text).items[0].id;
+  const r = await rpc(t, 'tools/call', { name: 'set_item_in_cart', arguments: { item_id: itemId, in_cart: true } });
+  check('toggle ok', !r.body?.result?.isError, JSON.stringify(r.body?.result));
+  const after = await rpc(t, 'tools/call', { name: 'get_list_items', arguments: { list_id: listId } });
+  const item = JSON.parse(after.body.result.content[0].text).items.find(i => i.id === itemId);
+  check('in_cart persisted', item?.in_cart === true, JSON.stringify(item));
+  // restore state so re-runs are idempotent
+  await rpc(t, 'tools/call', { name: 'set_item_in_cart', arguments: { item_id: itemId, in_cart: false } });
+});
+
 for (const [name, fn] of tests) {
   try { await fn(); } catch (e) { check(name, false, e.message); }
 }
