@@ -162,6 +162,62 @@ test('set_item_in_cart toggles', async () => {
   await rpc(t, 'tools/call', { name: 'set_item_in_cart', arguments: { item_id: itemId, in_cart: false } });
 });
 
+// ---- Task 7: isolation + security suite ----
+
+test('user B sees nothing of user A', async () => {
+  const tb = await login(USER_B);
+  const r = await rpc(tb, 'tools/call', { name: 'get_lists', arguments: {} });
+  const lists = JSON.parse(r.body.result.content[0].text).lists;
+  check('B has no shared lists', lists.every(l => !l.shared_with_me), JSON.stringify(lists));
+});
+
+test('user B cannot read or touch A items (RLS)', async () => {
+  const ta = await login(USER_A);
+  await ensureListFor(ta);
+  const tb = await login(USER_B);
+  const lists = await rpc(ta, 'tools/call', { name: 'get_lists', arguments: {} });
+  const listId = JSON.parse(lists.body.result.content[0].text).lists[0].id;
+  const items = await rpc(ta, 'tools/call', { name: 'get_list_items', arguments: { list_id: listId } });
+  const itemId = JSON.parse(items.body.result.content[0].text).items[0].id;
+
+  const rItems = await rpc(tb, 'tools/call', { name: 'get_list_items', arguments: { list_id: listId } });
+  const bItems = JSON.parse(rItems.body.result.content[0].text).items;
+  check('B sees empty list', Array.isArray(bItems) && bItems.length === 0, rItems.body.result.content[0].text);
+
+  const rTouch = await rpc(tb, 'tools/call', { name: 'set_item_in_cart', arguments: { item_id: itemId, in_cart: true } });
+  check('B blocked from A item', rTouch.body?.result?.isError === true, JSON.stringify(rTouch.body?.result));
+
+  const rAdd = await rpc(tb, 'tools/call', { name: 'add_item', arguments: { list_id: listId, name: 'פריט פולשני' } });
+  check('B blocked from adding to A list', rAdd.body?.result?.isError === true, JSON.stringify(rAdd.body?.result));
+});
+
+test('warm isolate: A then B back-to-back keeps identities separate', async () => {
+  const ta = await login(USER_A);
+  const tb = await login(USER_B);
+  const ra = await rpc(ta, 'tools/call', { name: 'get_lists', arguments: {} });
+  const rb = await rpc(tb, 'tools/call', { name: 'get_lists', arguments: {} }); // immediately after
+  const aLists = JSON.parse(ra.body.result.content[0].text).lists;
+  const bLists = JSON.parse(rb.body.result.content[0].text).lists;
+  const aIds = new Set(aLists.map(l => l.id));
+  check('A has at least one list (guards a vacuous pass)', aLists.length > 0, JSON.stringify(aLists));
+  check('no cross-user bleed', bLists.every(l => !aIds.has(l.id)), JSON.stringify({ aLists, bLists }));
+});
+
+test('tampered token → 401', async () => {
+  const t = await login(USER_A);
+  const forged = t.slice(0, -6) + 'aaaaaa';
+  const r = await rpc(forged, 'initialize');
+  check('tampered token rejected', r.status === 401, `got ${r.status}`);
+});
+
+test('untrusted content is wrapped in delimiters', async () => {
+  const t = await login(USER_A);
+  await ensureListFor(t);
+  const lists = await rpc(t, 'tools/call', { name: 'get_lists', arguments: {} });
+  const text = lists.body.result.content[0].text;
+  check('list names wrapped', text.includes('<untrusted-user-data>'), text);
+});
+
 for (const [name, fn] of tests) {
   try { await fn(); } catch (e) { check(name, false, e.message); }
 }
