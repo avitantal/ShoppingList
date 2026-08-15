@@ -102,6 +102,23 @@ create policy checkout_routes_self on shopping.checkout_routes
 grant select, insert on shopping.checkout_routes to authenticated;
 ```
 
+- [ ] **Step 2.5: Verify schema column names before applying migration 0020**
+
+Migration 0020's `with check` policy references `sl.owner_id` (on `shopping_lists`) and `lm.user_id` (on `list_members`). Verify these names are correct before applying:
+
+```sql
+-- Run via mcp__claude_ai_Supabase__execute_sql
+select column_name from information_schema.columns
+where table_schema = 'shopping' and table_name = 'shopping_lists'
+  and column_name like '%owner%';
+
+select column_name from information_schema.columns
+where table_schema = 'shopping' and table_name = 'list_members'
+  and column_name like '%user%';
+```
+
+If the actual names differ, update the `with check` clause in migration 0020 to match before proceeding.
+
 - [ ] **Step 3: Apply both migrations via Supabase MCP**
 
 Apply 0019 first, then 0020. Confirm each succeeds.
@@ -151,22 +168,22 @@ export interface ListItem {
 
 - [ ] **Step 2: Update `setInCart` in `src/hooks/useListItems.ts`**
 
-Read the file, find the `setInCart` function, and update the DB write so it also sets `checked_at`:
+Read the file, find `setInCart`, and replace it with this implementation. The optimistic update **must** include `checked_at` — `cartAtCheckoutRef` in `ActiveList` reads from local state at checkout time, so if `checked_at` is missing there, `inferRouteSequence` falls back to `updated_at` and sees stale timestamps.
 
 ```ts
-// When is_in_cart → true: stamp checked_at now.
-// When is_in_cart → false: clear checked_at so next checkout starts fresh.
-async function setInCart(id: string, next: boolean) {
-  // ... (keep any existing optimistic update logic)
-  await db.from('list_items').update({
-    is_in_cart: next,
-    checked_at: next ? new Date().toISOString() : null,
-  }).eq('id', id);
-  // ... (keep any existing error handling / refresh)
+async function setInCart(itemId: string, inCart: boolean) {
+  const checkedAt = inCart ? new Date().toISOString() : null;
+  setItems(prev => prev.map(i => i.id === itemId
+    ? { ...i, is_in_cart: inCart, checked_at: checkedAt }
+    : i
+  ));
+  const { error } = await db.from('list_items').update({
+    is_in_cart: inCart,
+    checked_at: checkedAt,
+  }).eq('id', itemId);
+  if (error) { await refresh(); throw error; }
 }
 ```
-
-Adapt the exact diff to what the file currently contains — do not remove existing optimistic update or error handling.
 
 - [ ] **Step 3: Fix the test helper in `src/test/helpers/mockSupabase.ts` and any test that constructs a `ListItem`**
 
@@ -223,12 +240,6 @@ function makeItem(
   };
 }
 
-const defaultOrder = DEPARTMENTS
-  .filter(d => d.code !== 'unclassified')
-  .sort((a, b) => a.order - b.order)
-  .map(d => d.code) as DepartmentCode[];
-
-// Full current order including all defaults (as ActiveList will build it)
 const fullCurrentOrder = DEPARTMENTS
   .filter(d => d.code !== 'unclassified')
   .sort((a, b) => a.order - b.order)
@@ -375,17 +386,26 @@ export function suggestOrder(
   currentOrder: DepartmentCode[],
   defaults: DepartmentMeta[] = DEPARTMENTS,
 ): DepartmentCode[] | null {
-  if (sequences.length < MIN_CHECKOUTS) return null;
+  // Pre-process: strip UNCLASSIFIED and deduplicate each sequence.
+  // Sequences that are empty after stripping carry no routing signal and must not
+  // count toward MIN_CHECKOUTS — otherwise a list of groceries with no catalog
+  // matches could trigger a suggestion based on zero real data.
+  const usableSequences = sequences
+    .map(seq =>
+      seq
+        .filter(code => code !== DEPARTMENT_CODES.UNCLASSIFIED)
+        .filter((code, i, arr) => arr.indexOf(code) === i)
+    )
+    .filter(seq => seq.length > 0);
+
+  if (usableSequences.length < MIN_CHECKOUTS) return null;
 
   const posSum   = new Map<DepartmentCode, number>();
   const posCount = new Map<DepartmentCode, number>();
 
-  for (const seq of sequences) {
-    // Keep only first occurrence of each dept in this checkout to avoid double-counting.
-    const unique = seq.filter((code, i) => seq.indexOf(code) === i);
-    const L = unique.length;
-    if (L === 0) continue;
-    unique.forEach((code, i) => {
+  for (const seq of usableSequences) {
+    const L = seq.length;
+    seq.forEach((code, i) => {
       posSum.set(code,   (posSum.get(code)   ?? 0) + i / L);
       posCount.set(code, (posCount.get(code) ?? 0) + 1);
     });
@@ -448,6 +468,8 @@ git commit -m "feat(route-sort): pure functions inferRouteSequence + suggestOrde
 
 - [ ] **Step 1: Implement the hook**
 
+> **TypeScript note:** `db` is typed as `any`, so all `checkout_routes` operations compile without errors even though the table isn't declared in `supabase.ts`. This is consistent with the rest of the codebase — just be careful with field names; there is no compile-time safety net here.
+
 ```ts
 import { useCallback } from 'react';
 import { supabase, db } from '../lib/supabase';
@@ -464,8 +486,19 @@ const WINDOW_DAYS   = 60;
 function getDeclineState(listId: string): { count: number; suppressedUntil: number } {
   try {
     const raw = localStorage.getItem(declineKey(listId));
-    return raw ? JSON.parse(raw) : { count: 0, suppressedUntil: 0 };
-  } catch { return { count: 0, suppressedUntil: 0 }; }
+    if (!raw) return { count: 0, suppressedUntil: 0 };
+    const parsed = JSON.parse(raw);
+    const count = Number.isFinite(parsed?.count) ? parsed.count : 0;
+    const suppressedUntil = Number.isFinite(parsed?.suppressedUntil) ? parsed.suppressedUntil : 0;
+    // Auto-reset: if the suppress window has expired, treat as a fresh start.
+    if (count >= MAX_DECLINES && suppressedUntil > 0 && Date.now() >= suppressedUntil) {
+      localStorage.removeItem(declineKey(listId));
+      return { count: 0, suppressedUntil: 0 };
+    }
+    return { count, suppressedUntil };
+  } catch {
+    return { count: 0, suppressedUntil: 0 };
+  }
 }
 
 export function useRouteSuggestion(listId: string) {
@@ -555,201 +588,7 @@ interface Props {
 }
 
 export function RouteSuggestionDialog({ suggested, onAccept, onDecline }: Props) {
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onDecline(); }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onDecline]);
-
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-2">
-      <div className="card w-full max-w-sm p-4">
-        <h2 className="text-base font-semibold mb-1">סדר מחלקות חדש?</h2>
-        <p className="text-sm text-muted mb-3">
-          לפי הדרך שבה קנית לאחרונה, הסדר הזה מתאים יותר למסלול שלך בחנות:
-        </p>
-        <ol className="text-sm space-y-1 mb-4 list-decimal list-inside">
-          {suggested.map(code => (
-            <li key={code}>{DEPARTMENT_BY_CODE[code]?.name ?? code}</li>
-          ))}
-        </ol>
-        <div className="flex gap-2">
-          <button className="btn-ghost flex-1" onClick={onDecline}>לא עכשיו</button>
-          <button className="btn-primary flex-1" onClick={onAccept}>כן, עדכן</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-```
-
-- [ ] **Step 2: Verify TypeScript compiles**
-
-```bash
-npm run build -- --noEmit 2>&1 | head -30
-```
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add src/components/RouteSuggestionDialog.tsx
-git commit -m "feat(route-sort): RouteSuggestionDialog component"
-```
-
----
-
-## Task 6: Wire it all together in `ActiveList`
-
-**Files:**
-- Modify: `src/components/ActiveList.tsx`
-
-Read the current file in full before making any edits.
-
-- [ ] **Step 1: Add imports**
-
-Add to the existing imports at the top of `src/components/ActiveList.tsx`:
-
-```ts
-import { inferRouteSequence } from '../lib/routeSuggestion';
-import { useRouteSuggestion } from '../hooks/useRouteSuggestion';
-import { RouteSuggestionDialog } from './RouteSuggestionDialog';
-```
-
-`DEPARTMENTS` and `DEPARTMENT_CODES` are re-exported from `'../lib/departmentLookup'`. Add them to whichever import line already brings in `groupByDepartment`:
-
-```ts
-import { groupByDepartment, getDepartmentForItem, DEPARTMENTS, DEPARTMENT_CODES } from '../lib/departmentLookup';
-```
-
-- [ ] **Step 2: Add state, ref, and hook inside the `ActiveList` component**
-
-After the existing `useState` / `useRef` declarations (around line 108):
-
-```ts
-const [suggestedOrder, setSuggestedOrder] = useState<DepartmentCode[] | null>(null);
-const cartAtCheckoutRef = useRef<ListItem[]>([]);
-const { saveRoute, fetchSuggestion, acceptSuggestion, declineSuggestion } = useRouteSuggestion(list.id);
-```
-
-- [ ] **Step 3: Build a helper that returns the full current order**
-
-Add this as a regular function inside the component (after the hooks, before any JSX):
-
-```ts
-function buildCurrentOrder(): DepartmentCode[] {
-  // Start with explicitly ordered departments from the per-list orderMap.
-  const explicit = [...orderMap.entries()]
-    .sort((a, b) => a[1] - b[1])
-    .map(([c]) => c);
-  // Append any defaults that aren't already listed.
-  const explicitSet = new Set(explicit);
-  const remaining = DEPARTMENTS
-    .filter(d => d.code !== DEPARTMENT_CODES.UNCLASSIFIED && !explicitSet.has(d.code))
-    .sort((a, b) => a.order - b.order)
-    .map(d => d.code);
-  return [...explicit, ...remaining];
-}
-```
-
-- [ ] **Step 4: Capture cart items when the checkout button is tapped**
-
-Find the checkout button's `onClick` (around line 339):
-
-```tsx
-onClick={() => setCheckoutOpen(true)}
-```
-
-Replace with:
-
-```tsx
-onClick={() => {
-  cartAtCheckoutRef.current = items.filter(i => i.is_in_cart);
-  setCheckoutOpen(true);
-}}
-```
-
-- [ ] **Step 5: Update `CheckoutDialog`'s `onDone`**
-
-Find (around line 347):
-
-```tsx
-onDone={() => { setCheckoutOpen(false); void refresh(); }}
-```
-
-Replace with:
-
-```tsx
-onDone={() => {
-  setCheckoutOpen(false);
-  void (async () => {
-    const sequence = inferRouteSequence(cartAtCheckoutRef.current, catalog, nameOverrides);
-    await saveRoute(sequence);
-    await refresh();
-    const suggestion = await fetchSuggestion(buildCurrentOrder());
-    if (suggestion) setSuggestedOrder(suggestion);
-  })();
-}}
-```
-
-- [ ] **Step 6: Add `RouteSuggestionDialog` to the JSX**
-
-In the `return (...)` block, directly before the final `</div>` (after the existing `{editingDeptItem && ...}` block):
-
-```tsx
-{suggestedOrder && (
-  <RouteSuggestionDialog
-    suggested={suggestedOrder}
-    onAccept={() => {
-      acceptSuggestion();
-      reorder(suggestedOrder);
-      setSuggestedOrder(null);
-    }}
-    onDecline={() => {
-      declineSuggestion();
-      setSuggestedOrder(null);
-    }}
-  />
-)}
-```
-
-- [ ] **Step 7: Verify TypeScript compiles**
-
-```bash
-npm run build -- --noEmit 2>&1 | head -50
-```
-
-Fix any type errors before continuing.
-
-- [ ] **Step 8: Run all unit tests**
-
-```bash
-npm run test:run
-```
-
-Expected: all tests PASS.
-
-- [ ] **Step 9: Commit**
-
-```bash
-git add src/components/ActiveList.tsx
-git commit -m "feat(route-sort): wire route capture + suggestion dialog into ActiveList"
-```
-
----
-
-## Task 7: Update README + push
-
-**Files:**
-- Modify: `README.md`
-
-- [ ] **Step 1: Update the English "Learns your habits" section**
-
-Find:
-
-```markdown
-- **Department order** — drag the departments into the order that matches your store layout. The app remembers it per list, so next time you shop the same route, everything is already sorted the way you walk.
-```
-
+נ 
 Replace with:
 
 ```markdown
@@ -794,7 +633,14 @@ git push
 | Double-counting department within one checkout | `suggestOrder` deduplicates each sequence to first occurrence before averaging |
 | `currentOrder` was partial (only from `orderMap`) | `buildCurrentOrder()` appends unordered defaults; passed to `suggestOrder` |
 | No error handling in `saveRoute` | Added `const { error } = ...` + `console.error` |
-| Import inconsistency | Imports from `'../lib/departments'` for types/meta; `'../lib/departmentLookup'` for runtime functions |
+| Import inconsistency | `DEPARTMENTS`, `DEPARTMENT_CODES`, `DepartmentCode` imported from `'../lib/departments'` directly in `ActiveList`; `groupByDepartment`/`getDepartmentForItem` stay on `'../lib/departmentLookup'` |
+| `getDeclineState` never resets after suppress window | Added defensive `Number.isFinite` parsing + explicit reset: `removeItem` when `count >= MAX_DECLINES && Date.now() >= suppressedUntil` |
+| MIN_CHECKOUTS check before sequence pre-filter | `suggestOrder` now builds `usableSequences` (UNCLASSIFIED-stripped, deduped, non-empty) and checks `usableSequences.length < MIN_CHECKOUTS` |
+| Optimistic update missing `checked_at` | `setInCart` optimistic state now includes `checked_at: checkedAt` so `cartAtCheckoutRef` always has fresh timestamps |
+| Schema column names not verified | Step 2.5 added: run SQL to confirm `owner_id` / `user_id` column names before applying migration 0020 |
+| `defaultOrder` unused in tests | Removed from test file; only `fullCurrentOrder` remains |
+| `buildCurrentOrder` leaks UNCLASSIFIED | Added `.filter(([c]) => c !== DEPARTMENT_CODES.UNCLASSIFIED)` to explicit entries |
+| `reorder()` return value ignored | Changed to `void reorder(suggestedOrder)` in accept handler |
 
 **Spec coverage:**
 

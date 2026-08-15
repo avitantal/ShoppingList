@@ -4,9 +4,22 @@ import { useAuth } from './hooks/useAuth';
 import { Auth } from './components/Auth';
 import { AppShell } from './components/AppShell';
 import { hardResetAuth } from './lib/googleAuth';
+import { OAuthConsent, AUTHZ_STORAGE_KEY } from './components/OAuthConsent';
+
+// Capture and scrub the OAuth consent param once, at module load: it must
+// survive the Google-login round trip but must not linger in the visible URL.
+const urlAuthId = new URLSearchParams(window.location.search).get('authorization_id');
+if (urlAuthId) {
+  sessionStorage.setItem(AUTHZ_STORAGE_KEY, urlAuthId);
+  const clean = new URL(window.location.href);
+  clean.searchParams.delete('authorization_id');
+  window.history.replaceState(null, '', clean.toString());
+}
 
 export default function App() {
   const { session, loading } = useAuth();
+  const authorizationId = sessionStorage.getItem(AUTHZ_STORAGE_KEY);
+  if (authorizationId) return <OAuthConsent authorizationId={authorizationId} />;
   if (loading) return <LoadingScreen />;
   return session ? <AppShell /> : <Auth />;
 }
