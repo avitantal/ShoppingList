@@ -103,7 +103,45 @@ test('get_lists works and leaks nothing', async () => {
   const text = r.body?.result?.content?.[0]?.text ?? '';
   const parsed = JSON.parse(text);
   check('lists array present', Array.isArray(parsed.lists), text);
-  check('no foreign lists for test user', parsed.lists.length === 0, text);
+  // USER_A's own default list is created lazily (ensure_default_list, idempotent) by
+  // later tests in this file, so after a first run this is no longer empty. The real
+  // invariant is ownership, not count: everything returned must be the user's own.
+  check('no foreign lists for test user',
+    parsed.lists.every((l) => l.shared_with_me === false), text);
+});
+
+// ---- Task 5 ----
+
+async function ensureListFor(token) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/ensure_default_list`, {
+    method: 'POST',
+    headers: {
+      apikey: ANON,
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+      'content-profile': 'shopping',
+      'accept-profile': 'shopping',
+    },
+    body: '{}',
+  });
+  if (!res.ok) throw new Error(`ensure_default_list failed: ${res.status} ${await res.text()}`);
+}
+
+test('add_item adds to own list', async () => {
+  const t = await login(USER_A);
+  await ensureListFor(t);
+  const lists = await rpc(t, 'tools/call', { name: 'get_lists', arguments: {} });
+  const listId = JSON.parse(lists.body.result.content[0].text).lists[0]?.id;
+  check('user A has a list after bootstrap', !!listId, lists.body.result.content[0].text);
+  const r = await rpc(t, 'tools/call', {
+    name: 'add_item', arguments: { list_id: listId, name: 'חלב 3%', qty: 2 },
+  });
+  check('add ok', !r.body?.result?.isError, JSON.stringify(r.body?.result));
+  const added = JSON.parse(r.body.result.content[0].text).added;
+  check('returned item id', !!added?.id, JSON.stringify(added));
+  const items = await rpc(t, 'tools/call', { name: 'get_list_items', arguments: { list_id: listId } });
+  check('item visible in list', items.body.result.content[0].text.includes('חלב'),
+    items.body.result.content[0].text);
 });
 
 for (const [name, fn] of tests) {

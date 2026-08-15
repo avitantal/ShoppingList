@@ -140,9 +140,51 @@ async function getListItems(db: SupabaseClient, args: Record<string, unknown>) {
   return toolOk(JSON.stringify({ items: rows }, null, 2));
 }
 
-// Tasks 5-6 replace these two stubs:
-async function addItem(_db: SupabaseClient, _claims: UserClaims, _args: Record<string, unknown>) {
-  return toolError('טרם מומש');
+async function addItem(db: SupabaseClient, _claims: UserClaims, args: Record<string, unknown>) {
+  const listId = String(args.list_id ?? '');
+  const rawName = String(args.name ?? '').trim();
+  if (!UUID_RE.test(listId)) return toolError('list_id לא תקין');
+  if (!rawName || rawName.length > 200) return toolError('שם פריט חסר או ארוך מדי');
+  const qty = args.qty === undefined ? 1 : Number(args.qty);
+  if (!Number.isFinite(qty) || qty <= 0 || qty > 999) return toolError('כמות לא תקינה');
+  const unit = args.unit ? String(args.unit).slice(0, 30) : null;
+  const notes = args.notes ? String(args.notes).slice(0, 500) : null;
+
+  // Catalog matching, same order as the app: saved default link first,
+  // then a confident search hit; otherwise free text.
+  let name = rawName;
+  let barcode: string | null = null;
+  const { data: def } = await db.rpc('get_product_link_default', { p_item_name: rawName });
+  const linked = Array.isArray(def) ? def[0] : null;
+  if (linked?.barcode) {
+    barcode = linked.barcode;
+    name = linked.name ?? rawName;
+  } else {
+    const { data: hits } = await db.rpc('search_products', {
+      p_query: rawName, p_chain_codes: null, p_limit: 3,
+    });
+    const first = Array.isArray(hits) ? hits[0] : null;
+    // "confident": single hit, or top hit whose name contains the query verbatim
+    if (first && (hits.length === 1 || (first.name ?? '').includes(rawName))) {
+      barcode = first.barcode ?? null;
+      name = first.name ?? rawName;
+    }
+  }
+
+  // add_item returns TABLE(item_id uuid, barcode_applied boolean) — a row set,
+  // not a scalar. barcode_applied is the DB's own verdict on the catalog link.
+  const { data: rows, error } = await db.rpc('add_item', {
+    p_list_id: listId, p_name: name, p_qty: qty,
+    p_unit: unit, p_notes: notes, p_barcode: barcode,
+  });
+  const added = Array.isArray(rows) ? rows[0] : rows;
+  if (error || !added?.item_id) return toolError();
+  return toolOk(JSON.stringify({
+    added: {
+      id: added.item_id, name: wrapUntrusted(name), qty,
+      matched_catalog: !!added.barcode_applied,
+    },
+  }));
 }
 async function setItemInCart(_db: SupabaseClient, _args: Record<string, unknown>) {
   return toolError('טרם מומש');
