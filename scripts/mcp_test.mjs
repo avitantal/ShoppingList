@@ -86,6 +86,26 @@ test('valid user token → initialize succeeds', async () => {
   check('protocolVersion present', !!r.body?.result?.protocolVersion, JSON.stringify(r.body));
 });
 
+// ---- Task 4 ----
+
+test('tools/list returns 4 tools', async () => {
+  const t = await login(USER_A);
+  const r = await rpc(t, 'tools/list');
+  const names = (r.body?.result?.tools ?? []).map(x => x.name).sort();
+  check('4 tools', JSON.stringify(names) ===
+    JSON.stringify(['add_item', 'get_list_items', 'get_lists', 'set_item_in_cart']), JSON.stringify(names));
+});
+
+test('get_lists works and leaks nothing', async () => {
+  const t = await login(USER_A);
+  const r = await rpc(t, 'tools/call', { name: 'get_lists', arguments: {} });
+  check('call ok', r.status === 200 && !r.body?.result?.isError, JSON.stringify(r.body));
+  const text = r.body?.result?.content?.[0]?.text ?? '';
+  const parsed = JSON.parse(text);
+  check('lists array present', Array.isArray(parsed.lists), text);
+  check('no foreign lists for test user', parsed.lists.length === 0, text);
+});
+
 for (const [name, fn] of tests) {
   try { await fn(); } catch (e) { check(name, false, e.message); }
 }
