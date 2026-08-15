@@ -49,7 +49,23 @@ export async function rpc(token, method, params = {}, id = 1) {
 const tests = [];
 export function test(name, fn) { tests.push([name, fn]); }
 
-// Task 2 tests land here…
+// ---- Task 2 ----
+
+test('unauthenticated POST → 401 + WWW-Authenticate', async () => {
+  const r = await rpc(null, 'initialize');
+  check('401 status', r.status === 401, `got ${r.status}`);
+  const www = r.headers.get('www-authenticate') ?? '';
+  check('WWW-Authenticate points at resource metadata',
+    www.includes('resource_metadata=') && www.includes('/.well-known/oauth-protected-resource'), www);
+});
+
+test('protected-resource metadata served', async () => {
+  const res = await fetch(`${FN}/.well-known/oauth-protected-resource`);
+  const j = await res.json();
+  check('metadata 200', res.status === 200, String(res.status));
+  check('authorization_servers correct',
+    j.authorization_servers?.[0] === `${SUPABASE_URL}/auth/v1`, JSON.stringify(j));
+});
 
 for (const [name, fn] of tests) {
   try { await fn(); } catch (e) { check(name, false, e.message); }
